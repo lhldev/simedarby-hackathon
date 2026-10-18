@@ -5,7 +5,7 @@
 - **Python 3.12+**, managed by `uv` (see `.python-version`, `pyproject.toml` + `uv.lock`).
 - **FastAPI** app in `app/main.py` — exports `app` for Vercel auto-detection.
 - **SQLAlchemy 2.0** against Neon Postgres, configured solely via `DATABASE_URL`.
-- **Native Rust extension** (`starter_rust`) built with PyO3/Maturin into a wheel. Import it directly — never bridge via `subprocess`.
+- **Native Rust extension** (`starter_rust`) built with PyO3/Maturin into a wheel. Import it directly — never bridge via `subprocess`. Current domain: the `Item` boilerplate was replaced by a `Visit` log — visits are signed by `starter_rust.process_visit(timestamp, user_agent)` and stored in the `visits` table (see `app/services/computation.py`, `app/api/routes/visits.py`).
 
 ## Commands
 

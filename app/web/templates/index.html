@@ -3,18 +3,161 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Hackathon Starter</title>
+    <title>Visitor Log</title>
     <link rel="icon" href="/static/favicon.ico" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin: 0 0 0.25rem;
+      }
+      .sub {
+        color: #94a3b8;
+        margin: 0 0 2rem;
+      }
+      button {
+        background: #22d3ee;
+        color: #0f172a;
+        border: 0;
+        border-radius: 8px;
+        padding: 0.85rem 1.5rem;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #67e8f9;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      #status {
+        margin: 1rem 0 0;
+        min-height: 1.25rem;
+        color: #fbbf24;
+      }
+      h2 {
+        margin: 2.5rem 0 0.75rem;
+        font-size: 1.1rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #1e293b;
+        vertical-align: top;
+      }
+      th {
+        color: #64748b;
+        font-weight: 600;
+      }
+      td.sig {
+        color: #22d3ee;
+        word-break: break-all;
+      }
+      .empty {
+        color: #64748b;
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Hackathon Starter</h1>
-      <p>FastAPI + Neon Postgres + native Rust extension.</p>
-      <ul>
-        <li><a href="/docs">Swagger UI</a></li>
-        <li><a href="/health">Health</a></li>
-        <li><a href="/items">Items</a></li>
-      </ul>
+      <h1>Visitor Log</h1>
+      <p class="sub">
+        FastAPI &rarr; native Rust (PyO3) &rarr; Neon Postgres. Every visit is
+        signed by the Rust extension and persisted.
+      </p>
+      <button id="log-visit" type="button">Log My Visit (Triggers Rust &amp; DB)</button>
+      <p id="status"></p>
+      <h2>Recent Visits</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Rust Signature</th>
+          </tr>
+        </thead>
+        <tbody id="visits-body">
+          <tr>
+            <td colspan="3" class="empty">Loading&hellip;</td>
+          </tr>
+        </tbody>
+      </table>
     </main>
+    <script>
+      const body = document.getElementById("visits-body");
+      const statusEl = document.getElementById("status");
+      const button = document.getElementById("log-visit");
+
+      function renderRows(visits) {
+        if (!visits.length) {
+          body.innerHTML =
+            '<tr><td colspan="3" class="empty">No visits logged yet.</td></tr>';
+          return;
+        }
+        body.innerHTML = visits
+          .map(function (v) {
+            const ts = new Date(v.timestamp).toLocaleString();
+            return (
+              "<tr><td>" +
+              v.id +
+              "</td><td>" +
+              ts +
+              '</td><td class="sig">' +
+              v.rust_signature +
+              "</td></tr>"
+            );
+          })
+          .join("");
+      }
+
+      async function refresh() {
+        const res = await fetch("/api/v1/visits");
+        renderRows(await res.json());
+      }
+
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        statusEl.textContent = "Contacting Rust backend…";
+        try {
+          await fetch("/api/v1/visits", { method: "POST" });
+          statusEl.textContent = "Visit signed and stored.";
+          await refresh();
+        } catch (err) {
+          statusEl.textContent = "Request failed: " + err;
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      refresh();
+    </script>
   </body>
 </html>

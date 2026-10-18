@@ -7,4 +7,4 @@ if ! command -v cargo >/dev/null 2>&1; then
   source "$HOME/.cargo/env"
 fi
 
-uv sync
+uv sync --reinstall-package starter_rust

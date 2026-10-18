@@ -7,17 +7,23 @@ def test_health(client):
 def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Hackathon Starter" in response.text
+    assert "Visitor Log" in response.text
 
 
-def test_create_and_list_items(client):
-    response = client.post("/items", json={"name": "demo", "description": "first item"})
+def test_log_and_list_visits(client):
+    response = client.post(
+        "/api/v1/visits", headers={"User-Agent": "Mozilla/5.0 TestAgent"}
+    )
     assert response.status_code == 201
     body = response.json()
-    assert body["id"] == 1
-    assert body["name"] == "demo"
-    assert body["optimized"] == ("Optimized via native Rust execution: demo")
+    assert body["user_agent"] == "Mozilla/5.0 TestAgent"
+    assert body["rust_signature"].startswith("RUST-")
+    assert "ts_len:" in body["rust_signature"]
+    assert "ua_len:" in body["rust_signature"]
 
-    listing = client.get("/items")
+    listing = client.get("/api/v1/visits")
     assert listing.status_code == 200
-    assert [item["name"] for item in listing.json()] == ["demo"]
+    rows = listing.json()
+    assert len(rows) == 1
+    assert rows[0]["id"] == body["id"]
+    assert rows[0]["rust_signature"] == body["rust_signature"]

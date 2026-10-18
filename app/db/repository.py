@@ -1,20 +1,31 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Item
+from app.db.models import Visit
 
 
-def create_item(session: Session, name: str, description: str | None = None) -> Item:
-    item = Item(name=name, description=description)
-    session.add(item)
+def create_visit(
+    session: Session,
+    timestamp: datetime,
+    user_agent: str,
+    rust_signature: str,
+) -> Visit:
+    visit = Visit(
+        timestamp=timestamp,
+        user_agent=user_agent,
+        rust_signature=rust_signature,
+    )
+    session.add(visit)
     session.flush()
-    session.refresh(item)
-    return item
+    session.refresh(visit)
+    return visit
 
 
-def get_item(session: Session, item_id: int) -> Item | None:
-    return session.get(Item, item_id)
-
-
-def list_items(session: Session) -> list[Item]:
-    return list(session.execute(select(Item).order_by(Item.id)).scalars())
+def get_recent_visits(session: Session, limit: int = 10) -> list[Visit]:
+    return list(
+        session.execute(
+            select(Visit).order_by(Visit.timestamp.desc()).limit(limit)
+        ).scalars()
+    )

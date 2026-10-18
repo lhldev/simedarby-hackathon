@@ -1,18 +1,3 @@
-from pydantic import BaseModel, ConfigDict
+from app.schemas.visit import VisitRead
 
-
-class ItemCreate(BaseModel):
-    name: str
-    description: str | None = None
-
-
-class ItemRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    description: str | None = None
-    optimized: str | None = None
-
-
-__all__ = ["ItemCreate", "ItemRead"]
+__all__ = ["VisitRead"]
