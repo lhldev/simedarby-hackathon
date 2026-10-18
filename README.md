@@ -1,6 +1,6 @@
-# Hackathon Starter — Visitor Log
+# Sime Darby Hackathon — Visitor Log
 
-Zero-boilerplate foundation: **FastAPI + SQLAlchemy + Neon Postgres + native Rust extension** (PyO3/Maturin), deployable to Vercel.
+Zero-boilerplate foundation for the **Sime Darby Hackathon**: **FastAPI + SQLAlchemy + Neon Postgres + native Rust extension** (PyO3/Maturin), deployable to Vercel.
 
 A simple Visitor Log app proves the full stack is wired: the browser posts a visit, the FastAPI route hands the timestamp + user agent to the **native Rust extension** for signing, the signature is persisted to **Neon Postgres**, and the dashboard table lists the recent signed visits.
 
@@ -52,6 +52,24 @@ make db
 | GET    | `/health`           | Liveness probe                       |
 | POST   | `/api/v1/visits`    | Log a visit; returns the signed record |
 | GET    | `/api/v1/visits`    | List the 10 most recent visits        |
+
+## Theme
+
+The dashboard (`app/web/templates/index.html`) uses the **Sime Darby color theme**, taken from the official Sime brand identity (<https://www.sime.com/about/bridging-opportunities/>). Colors are exposed as CSS custom properties so they can be reused:
+
+| Token                | Hex       | Role                    |
+| -------------------- | --------- | ----------------------- |
+| `--sime-navy`        | `#003866` | Primary / headings      |
+| `--sime-navy-dark`   | `#001D33` | Deep navy accents       |
+| `--sime-orange`      | `#FF6B12` | Accent / CTAs / links   |
+| `--sime-orange-dark` | `#D9550B` | Accent hover            |
+| `--sime-ink`         | `#182B3A` | Body text               |
+| `--sime-muted`       | `#8B959D` | Secondary text          |
+| `--sime-surface`     | `#FFFFFF` | Page background         |
+| `--sime-surface-2`   | `#F2F2F2` | Subtle surfaces         |
+| `--sime-border`      | `#CFCFCF` | Borders / dividers      |
+
+Keep new UI on this palette (navy for structure, orange for emphasis) so the app stays on brand.
 
 ## Database
 

@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.main import api_router
 
-app = FastAPI(title="Hackathon Starter")
+app = FastAPI(title="Sime Darby Hackathon")
 
 app.include_router(api_router)
 

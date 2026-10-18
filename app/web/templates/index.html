@@ -3,11 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Visitor Log</title>
+    <title>Sime Darby Hackathon — Visitor Log</title>
     <link rel="icon" href="/static/favicon.ico" />
+    <!--
+      Sime Darby brand theme.
+      Palette derived from the official Sime identity (github: simedarby.com):
+        Primary navy    #003866
+        Deep navy       #001D33
+        Accent orange   #FF6B12
+      Supporting neutrals mirror the Sime web theme.
+    -->
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: light;
+
+        /* Sime Darby brand palette */
+        --sime-navy: #003866;
+        --sime-navy-dark: #001d33;
+        --sime-orange: #ff6b12;
+        --sime-orange-dark: #d9550b;
+
+        /* Neutrals */
+        --sime-ink: #182b3a;
+        --sime-muted: #8b959d;
+        --sime-surface: #ffffff;
+        --sime-surface-2: #f2f2f2;
+        --sime-border: #cfcfcf;
       }
       * {
         box-sizing: border-box;
@@ -15,8 +36,8 @@
       body {
         margin: 0;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        background: #0f172a;
-        color: #e2e8f0;
+        background: var(--sime-surface);
+        color: var(--sime-ink);
         min-height: 100vh;
       }
       main {
@@ -27,14 +48,24 @@
       h1 {
         font-size: 1.75rem;
         margin: 0 0 0.25rem;
+        color: var(--sime-navy);
+      }
+      h1::after {
+        content: "";
+        display: block;
+        width: 3rem;
+        height: 4px;
+        margin-top: 0.75rem;
+        background: var(--sime-orange);
+        border-radius: 2px;
       }
       .sub {
-        color: #94a3b8;
-        margin: 0 0 2rem;
+        color: var(--sime-muted);
+        margin: 1.25rem 0 2rem;
       }
       button {
-        background: #22d3ee;
-        color: #0f172a;
+        background: var(--sime-orange);
+        color: var(--sime-surface);
         border: 0;
         border-radius: 8px;
         padding: 0.85rem 1.5rem;
@@ -43,7 +74,7 @@
         cursor: pointer;
       }
       button:hover {
-        background: #67e8f9;
+        background: var(--sime-orange-dark);
       }
       button:disabled {
         opacity: 0.5;
@@ -52,12 +83,12 @@
       #status {
         margin: 1rem 0 0;
         min-height: 1.25rem;
-        color: #fbbf24;
+        color: var(--sime-navy);
       }
       h2 {
         margin: 2.5rem 0 0.75rem;
         font-size: 1.1rem;
-        color: #94a3b8;
+        color: var(--sime-navy);
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
@@ -70,25 +101,25 @@
       td {
         text-align: left;
         padding: 0.6rem 0.75rem;
-        border-bottom: 1px solid #1e293b;
+        border-bottom: 1px solid var(--sime-border);
         vertical-align: top;
       }
       th {
-        color: #64748b;
+        color: var(--sime-muted);
         font-weight: 600;
       }
       td.sig {
-        color: #22d3ee;
+        color: var(--sime-orange);
         word-break: break-all;
       }
       .empty {
-        color: #64748b;
+        color: var(--sime-muted);
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Visitor Log</h1>
+      <h1>Sime Darby Visitor Log</h1>
       <p class="sub">
         FastAPI &rarr; native Rust (PyO3) &rarr; Neon Postgres. Every visit is
         signed by the Rust extension and persisted.

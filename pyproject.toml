@@ -1,5 +1,5 @@
 [project]
-name = "hackathon-starter"
+name = "simedarby-hackathon"
 version = "0.1.0"
 description = "FastAPI + Neon Postgres + Native Rust Extension."
 readme = "README.md"
