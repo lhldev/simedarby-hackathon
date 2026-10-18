@@ -1,7 +1,7 @@
 [project]
 name = "simedarby-hackathon"
 version = "0.1.0"
-description = "FastAPI + Neon Postgres + Native Rust Extension."
+description = "FastAPI + Neon Postgres + Native Rust Extension. For Sime Darby Hackathon."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
