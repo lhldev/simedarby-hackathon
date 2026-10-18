@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+.vercel_wheels/
+target/
+.env
+*.whl
+.pytest_cache/
+.ruff_cache/
