@@ -1,98 +1,137 @@
-# Sime Darby Hackathon — Visitor Log
+# SD-Wallet — Sime Darby All-in-One
 
-Zero-boilerplate foundation for the **Sime Darby Hackathon**: **FastAPI + SQLAlchemy + Neon Postgres + native Rust extension** (PyO3/Maturin), deployable to Vercel.
+A hackathon front end that brings five day-to-day experiences into one
+Sime Darby-branded app:
 
-A simple Visitor Log app proves the full stack is wired: the browser posts a visit, the FastAPI route hands the timestamp + user agent to the **native Rust extension** for signing, the signature is persisted to **Neon Postgres**, and the dashboard table lists the recent signed visits.
+1. **SD-Wallet** — a Touch 'n Go-style wallet with top-ups, payments,
+   transfers, a virtual card, rewards and a live transaction feed.
+2. **Policy Checker** — a chatbot that answers travel, claims, medical,
+   mileage, procurement, safety and leave questions from a demo policy set.
+3. **Carpooling** — post a ride as a driver or request a seat as a passenger,
+   pay the contribution from the wallet and watch seats update on the board.
+4. **Community Marketplace** — search and filter internal listings, add items
+   to a basket and check out with SD-Wallet.
+5. **Restaurant Monitor** — live table availability, photo uploads, owner
+   status controls and an automation API for POS/kitchen systems.
 
-## Layout
+There is **no login flow**. The app runs entirely as a demo identity (Aisyah
+Rahman) and keeps wallet, carpool and marketplace data in `localStorage`, so
+state survives a page reload in the same browser.
 
-```
-app/            FastAPI application (api, db, services, web)
-rust_ext/       Rust crate compiled to the `starter_rust` Python module
-scripts/        setup.sh (env bootstrap) + init_db.py (schema creation)
-tests/          pytest suite backed by transient SQLite
-```
+The original FastAPI + Neon Postgres + Rust visitor-log backend is still
+present as the stack proof; the root page is now the SD-Wallet experience.
 
-## Quickstart
-
-```bash
-cp .env.example .env   # set DATABASE_URL (Neon Postgres connection string)
-make setup             # installs uv deps and compiles the Rust extension
-make db                # creates the visits table
-make dev               # http://localhost:8000 — click "Log My Visit"
-```
-
-## Using the Visitor Log
-
-1. Open http://localhost:8000 — the dashboard loads the recent visits table automatically.
-2. Click **"Log My Visit (Triggers Rust & DB)"**.
-3. Behind the scenes: the browser POSTs to `/api/v1/visits`, the route captures the current UTC timestamp and your `User-Agent` header, and passes both to `starter_rust.process_visit` — the **natively compiled Rust function**. Rust reverses the user agent, runs an FNV-1a-style pseudo-hash over the timestamp, and returns a signature like `RUST-3f2a…|rev:tnemtseT…|ts_len:35|ua_len:12`. That record is saved to Postgres and appears in the table.
-
-### Verify the Rust extension compiled
+## Run it
 
 ```bash
-uv run python -c "import starter_rust; print(starter_rust.process_visit('2026-10-18T00:00:00+00:00', 'Mozilla/5.0'))"
-# RUST-<hash>|rev:0.5/allizuaM|ts_len:25|ua_len:11
+cp .env.example .env   # set DATABASE_URL (Neon Postgres or sqlite://)
+make setup             # install uv deps + compile the Rust extension
+make db                # create the visits table (visitor-log API only)
+make dev               # http://localhost:8000
 ```
 
-If that prints a `RUST-` signature (not an import error), the PyO3/Maturin build succeeded.
+`make test` runs the pytest suite. `make lint` runs Ruff.
 
-### Verify the database schema
+## Front-end layout
+
+```
+app/web/templates/index.html   App shell, navigation and all five views
+app/web/static/styles.css      Sime Darby design system and responsive layout
+app/web/static/app.js          State, rendering, chat, cart, carpool and live venues
+app/api/routes/restaurants.py  Lightweight in-memory availability API
+```
+
+Everything is vanilla HTML/CSS/JS — no build step, no front-end dependencies.
+Navigation uses `#wallet`, `#policy`, `#carpool`, `#marketplace` and
+`#restaurant` deep links.
+
+### Shared UI language
+
+All modules reuse the same primitives: `panel`, `view-heading`, `btn`,
+`badge`, `stat-card`, `form-grid`, `segmented`, `modal`, `toast` and the
+`tone-*` thumbnail gradients. Each feature is a self-contained view inside one
+shell, so switching sections never reloads the page.
+
+Wallet interactions are also woven into the other modules: reserving a carpool
+seat, checking out a marketplace basket and posting a listing all update the
+same balance and transaction history.
+
+### Demo behaviour
+
+| Area | Behaviour |
+| --- | --- |
+| Wallet | In-browser balance, transactions, top-up/pay/transfer modal, rewards summary. |
+| Policy Checker | Keyword-matched demo answers with typing indicator and suggested prompts. |
+| Carpool | Role toggle, route form, ride board, seat reservation and wallet contribution. |
+| Marketplace | Search, category filters, listing creation, basket quantities and checkout. |
+| Restaurants | API-backed availability, 15-second polling, photo previews, status toggles and activity feed. |
+
+Restaurant photos are previewed with `FileReader` and kept in memory only; they
+are not uploaded to storage. Wallet, carpool and marketplace data can be reset
+by clearing site data for the app.
+
+## Restaurant automation API
+
+Restaurant availability is the one intentionally lightweight server feature.
+State is in memory, which is enough for a single-instance demo but resets when
+the process restarts.
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/v1/restaurants` | List venues with live availability |
+| `PATCH` | `/api/v1/restaurants/{venue_id}/availability` | Update status, free tables and wait time |
 
 ```bash
-make db
-# or: uv run python scripts/init_db.py -> "Database schema created."
+curl -X PATCH "http://localhost:8000/api/v1/restaurants/the-grill-house/availability" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"busy","tables_available":6,"wait_minutes":20}'
 ```
 
-## API
+`status` is one of `open`, `busy` or `closed`. `tables_available` must not
+exceed the venue capacity. There is no authentication on this demo endpoint.
 
-| Method | Path                | Description                          |
-| ------ | ------------------- | ------------------------------------ |
-| GET    | `/`                 | Visitor Log dashboard (vanilla JS)   |
-| GET    | `/health`           | Liveness probe                       |
-| POST   | `/api/v1/visits`    | Log a visit; returns the signed record |
-| GET    | `/api/v1/visits`    | List the 10 most recent visits        |
+## Existing backend API
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/health` | Liveness probe |
+| `POST` | `/api/v1/visits` | Log a visit signed by the Rust extension |
+| `GET` | `/api/v1/visits` | List the 10 most recent visits |
+
+The `visits` table (`id`, `timestamp`, `user_agent`, `rust_signature`) is
+created explicitly with `make db`, never during app startup.
+
+## Stack
+
+- **Python 3.12+** managed by `uv`
+- **FastAPI** app exported from `app/main.py` for Vercel
+- **SQLAlchemy 2.0** against Neon Postgres via `DATABASE_URL`
+- **Native Rust extension** (`starter_rust`, PyO3/Maturin) for visit signatures
+- **Vanilla JS/CSS** front end served from `app/web/`
 
 ## Theme
 
-The dashboard (`app/web/templates/index.html`) uses the **Sime Darby color theme**, taken from the official Sime brand identity (<https://www.sime.com/about/bridging-opportunities/>). Colors are exposed as CSS custom properties so they can be reused:
+The UI stays on the official Sime Darby palette. Tokens are defined in
+`app/web/static/styles.css` and `app/web/templates/index.html`:
 
-| Token                | Hex       | Role                    |
-| -------------------- | --------- | ----------------------- |
-| `--sime-navy`        | `#003866` | Primary / headings      |
-| `--sime-navy-dark`   | `#001D33` | Deep navy accents       |
-| `--sime-orange`      | `#FF6B12` | Accent / CTAs / links   |
-| `--sime-orange-dark` | `#D9550B` | Accent hover            |
-| `--sime-ink`         | `#182B3A` | Body text               |
-| `--sime-muted`       | `#8B959D` | Secondary text          |
-| `--sime-surface`     | `#FFFFFF` | Page background         |
-| `--sime-surface-2`   | `#F2F2F2` | Subtle surfaces         |
-| `--sime-border`      | `#CFCFCF` | Borders / dividers      |
+| Token | Hex | Role |
+| --- | --- | --- |
+| `--sime-navy` | `#003866` | Primary surfaces, headings |
+| `--sime-navy-dark` | `#001D33` | Sidebar, code blocks |
+| `--sime-orange` | `#FF6B12` | CTAs, active states, live indicators |
+| `--sime-orange-dark` | `#D9550B` | Hover and accent text |
+| `--sime-ink` | `#182B3A` | Body text |
+| `--sime-muted` | `#8B959D` | Secondary text |
+| `--sime-surface` | `#FFFFFF` | Panels |
+| `--sime-surface-2` | `#F2F4F7` | Page background, subtle fills |
+| `--sime-border` | `#CFCFCF` | Borders and dividers |
 
-Keep new UI on this palette (navy for structure, orange for emphasis) so the app stays on brand.
+Keep new components on navy for structure and orange for emphasis. No off-brand
+colors or external UI libraries.
 
-## Database
+## Deploy
 
-Schema is created **explicitly** — never at app startup — to avoid cold-start races on serverless:
-
-```bash
-make db
-# or: uv run python scripts/init_db.py
-```
-
-The `visits` table: `id` (UUID), `timestamp` (timestamptz), `user_agent`, `rust_signature`.
-
-## Rust extension
-
-```python
-import starter_rust
-
-starter_rust.process_visit("2026-10-18T00:00:00+00:00", "curl/8.0")
-# 'RUST-<fnv1a-hash>|rev:0.8/lrc|ts_len:25|ua_len:7'
-```
-
-Rebuild after editing `rust_ext/src/lib.rs` with `make setup` (Maturin compiles via `uv sync`). Only `pyo3` + std are used, so recompilation stays fast.
-
-## Deploy (Vercel)
-
-`.github/workflows/deploy.yml` builds the wheel with `maturin-action`, stages it into `.vercel_wheels/`, and deploys with the Vercel CLI. Required secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Runtime settings (60s max duration, no custom Rust build step) are declared in `vercel.json`.
+`.github/workflows/deploy.yml` builds the Rust wheel with `maturin-action`,
+stages it into `.vercel_wheels/`, and deploys with the Vercel CLI. Required
+secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. Runtime settings
+(60s max duration, no custom Rust build step) are declared in `vercel.json`.

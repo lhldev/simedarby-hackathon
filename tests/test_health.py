@@ -7,7 +7,9 @@ def test_health(client):
 def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Visitor Log" in response.text
+    assert "SD-Wallet" in response.text
+    assert "Policy Checker" in response.text
+    assert "Restaurant Monitor" in response.text
 
 
 def test_log_and_list_visits(client):

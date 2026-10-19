@@ -6,6 +6,7 @@
 - **FastAPI** app in `app/main.py` — exports `app` for Vercel auto-detection.
 - **SQLAlchemy 2.0** against Neon Postgres, configured solely via `DATABASE_URL`.
 - **Native Rust extension** (`starter_rust`) built with PyO3/Maturin into a wheel. Import it directly — never bridge via `subprocess`. Current domain: the `Item` boilerplate was replaced by a `Visit` log — visits are signed by `starter_rust.process_visit(timestamp, user_agent)` and stored in the `visits` table (see `app/services/computation.py`, `app/api/routes/visits.py`).
+- **SD-Wallet front end**: one vanilla HTML/CSS/JS shell in `app/web/templates/index.html` + `app/web/static/` with five views — Wallet, Policy Checker, Carpool, Marketplace, Restaurant Monitor. There is deliberately **no login**; demo state lives in `localStorage`. Restaurant availability is backed by the lightweight in-memory API in `app/api/routes/restaurants.py`.
 
 ## Commands
 

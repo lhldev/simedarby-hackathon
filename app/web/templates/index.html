@@ -3,192 +3,521 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sime Darby Hackathon — Visitor Log</title>
+    <meta
+      name="description"
+      content="SD-Wallet: policy checker, carpooling, community marketplace and restaurant monitoring in one Sime Darby app."
+    />
+    <title>SD-Wallet — Sime Darby All-in-One</title>
     <link rel="icon" href="/static/favicon.ico" />
-    <!--
-      Sime Darby brand theme.
-      Palette derived from the official Sime identity (github: simedarby.com):
-        Primary navy    #003866
-        Deep navy       #001D33
-        Accent orange   #FF6B12
-      Supporting neutrals mirror the Sime web theme.
-    -->
-    <style>
-      :root {
-        color-scheme: light;
-
-        /* Sime Darby brand palette */
-        --sime-navy: #003866;
-        --sime-navy-dark: #001d33;
-        --sime-orange: #ff6b12;
-        --sime-orange-dark: #d9550b;
-
-        /* Neutrals */
-        --sime-ink: #182b3a;
-        --sime-muted: #8b959d;
-        --sime-surface: #ffffff;
-        --sime-surface-2: #f2f2f2;
-        --sime-border: #cfcfcf;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        background: var(--sime-surface);
-        color: var(--sime-ink);
-        min-height: 100vh;
-      }
-      main {
-        max-width: 880px;
-        margin: 0 auto;
-        padding: 3rem 1.25rem 4rem;
-      }
-      h1 {
-        font-size: 1.75rem;
-        margin: 0 0 0.25rem;
-        color: var(--sime-navy);
-      }
-      h1::after {
-        content: "";
-        display: block;
-        width: 3rem;
-        height: 4px;
-        margin-top: 0.75rem;
-        background: var(--sime-orange);
-        border-radius: 2px;
-      }
-      .sub {
-        color: var(--sime-muted);
-        margin: 1.25rem 0 2rem;
-      }
-      button {
-        background: var(--sime-orange);
-        color: var(--sime-surface);
-        border: 0;
-        border-radius: 8px;
-        padding: 0.85rem 1.5rem;
-        font: inherit;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      button:hover {
-        background: var(--sime-orange-dark);
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: wait;
-      }
-      #status {
-        margin: 1rem 0 0;
-        min-height: 1.25rem;
-        color: var(--sime-navy);
-      }
-      h2 {
-        margin: 2.5rem 0 0.75rem;
-        font-size: 1.1rem;
-        color: var(--sime-navy);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 0.6rem 0.75rem;
-        border-bottom: 1px solid var(--sime-border);
-        vertical-align: top;
-      }
-      th {
-        color: var(--sime-muted);
-        font-weight: 600;
-      }
-      td.sig {
-        color: var(--sime-orange);
-        word-break: break-all;
-      }
-      .empty {
-        color: var(--sime-muted);
-      }
-    </style>
+    <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main>
-      <h1>Sime Darby Visitor Log</h1>
-      <p class="sub">
-        FastAPI &rarr; native Rust (PyO3) &rarr; Neon Postgres. Every visit is
-        signed by the Rust extension and persisted.
-      </p>
-      <button id="log-visit" type="button">Log My Visit (Triggers Rust &amp; DB)</button>
-      <p id="status"></p>
-      <h2>Recent Visits</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Timestamp</th>
-            <th>Rust Signature</th>
-          </tr>
-        </thead>
-        <tbody id="visits-body">
-          <tr>
-            <td colspan="3" class="empty">Loading&hellip;</td>
-          </tr>
-        </tbody>
-      </table>
-    </main>
-    <script>
-      const body = document.getElementById("visits-body");
-      const statusEl = document.getElementById("status");
-      const button = document.getElementById("log-visit");
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">SD</span>
+          <span class="brand-copy">
+            <strong>SD-Wallet</strong>
+            <small>Sime Darby all-in-one</small>
+          </span>
+        </div>
 
-      function renderRows(visits) {
-        if (!visits.length) {
-          body.innerHTML =
-            '<tr><td colspan="3" class="empty">No visits logged yet.</td></tr>';
-          return;
-        }
-        body.innerHTML = visits
-          .map(function (v) {
-            const ts = new Date(v.timestamp).toLocaleString();
-            return (
-              "<tr><td>" +
-              v.id +
-              "</td><td>" +
-              ts +
-              '</td><td class="sig">' +
-              v.rust_signature +
-              "</td></tr>"
-            );
-          })
-          .join("");
-      }
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-item is-active" type="button" data-nav="wallet" aria-current="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="13" rx="3" />
+              <path d="M3 10h18M16 14.5h2" />
+            </svg>
+            <span>Wallet</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="policy">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5.5h16v10H9l-5 3.5v-13.5Z" />
+              <path d="M8 9h8M8 12h5" />
+            </svg>
+            <span>Policy Checker</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="carpool">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 16.5v-3l1.7-5A2 2 0 0 1 8.6 7h6.8a2 2 0 0 1 1.9 1.5l1.7 5v3" />
+              <path d="M4 16.5h16v3H4zM6.5 13h11" />
+              <circle cx="7.5" cy="19.5" r="1.5" />
+              <circle cx="16.5" cy="19.5" r="1.5" />
+            </svg>
+            <span>Carpool</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="marketplace">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 8h14l-1 12H6L5 8Z" />
+              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+            </svg>
+            <span>Marketplace</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="restaurant">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10h16M5 10l1 10h12l1-10M3.5 10l1.2-4h14.6l1.2 4" />
+              <path d="M9 6V3M15 6V3" />
+            </svg>
+            <span>Restaurant Monitor</span>
+          </button>
+        </nav>
 
-      async function refresh() {
-        const res = await fetch("/api/v1/visits");
-        renderRows(await res.json());
-      }
+        <div class="sidebar-wallet">
+          <p>Available balance</p>
+          <strong data-balance>RM 3,482.60</strong>
+          <span>SD •••• 8842</span>
+        </div>
 
-      button.addEventListener("click", async function () {
-        button.disabled = true;
-        statusEl.textContent = "Contacting Rust backend…";
-        try {
-          await fetch("/api/v1/visits", { method: "POST" });
-          statusEl.textContent = "Visit signed and stored.";
-          await refresh();
-        } catch (err) {
-          statusEl.textContent = "Request failed: " + err;
-        } finally {
-          button.disabled = false;
-        }
-      });
+        <div class="sidebar-foot">
+          <span class="pulse-dot"></span>
+          <div>
+            <strong>Demo mode</strong>
+            <small>No login. Data stays on this device.</small>
+          </div>
+        </div>
+      </aside>
 
-      refresh();
-    </script>
+      <div class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="page-eyebrow">All-in-one</p>
+            <h1 id="page-title">SD-Wallet</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="live-chip"><span class="pulse-dot"></span> Live demo</span>
+            <button class="profile-chip" type="button" title="Demo profile">AR</button>
+          </div>
+        </header>
+
+        <main class="content">
+          <section class="view is-active" data-view-panel="wallet" id="view-wallet">
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">Good morning, Aisyah</p>
+                <h2>Everything you need, in one wallet</h2>
+                <p>
+                  Pay, claim, carpool, shop and dine across the Sime Darby
+                  network without leaving the app.
+                </p>
+              </div>
+              <button class="btn btn-ghost" type="button" data-money="topup">Add money</button>
+            </div>
+
+            <div class="wallet-hero">
+              <article class="balance-card">
+                <div class="balance-head">
+                  <span>Total available</span>
+                  <span class="badge-light">SD-Wallet</span>
+                </div>
+                <strong class="balance-value" data-balance>RM 3,482.60</strong>
+                <div class="balance-foot">
+                  <span>SD •••• 8842</span>
+                  <span>Updated just now</span>
+                </div>
+                <div class="balance-actions">
+                  <button type="button" data-money="topup">Top up</button>
+                  <button type="button" data-money="pay">Pay</button>
+                  <button type="button" data-money="transfer">Transfer</button>
+                </div>
+              </article>
+
+              <article class="virtual-card" aria-label="SD-Wallet virtual card">
+                <div class="virtual-card-top">
+                  <span>SD-Wallet</span>
+                  <span>Visa</span>
+                </div>
+                <div class="virtual-card-chip" aria-hidden="true"></div>
+                <div class="virtual-card-number">•••• •••• •••• 8842</div>
+                <div class="virtual-card-bottom">
+                  <span>AISYAH RAHMAN</span>
+                  <span>09 / 29</span>
+                </div>
+              </article>
+            </div>
+
+            <div class="stat-grid">
+              <article class="stat-card">
+                <span>Spent this month</span>
+                <strong data-spent>RM 0.00</strong>
+                <small>Wallet, rides and marketplace</small>
+              </article>
+              <article class="stat-card">
+                <span>Cashback earned</span>
+                <strong data-cashback>RM 0.00</strong>
+                <small>Credited to your wallet</small>
+              </article>
+              <article class="stat-card">
+                <span>SD reward points</span>
+                <strong data-points>720</strong>
+                <small>280 points to the next tier</small>
+              </article>
+            </div>
+
+            <div class="dashboard-grid">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h3>Recent activity</h3>
+                    <p>Your latest wallet movements</p>
+                  </div>
+                  <button class="btn btn-ghost btn-small" type="button" data-money="pay">
+                    Make a payment
+                  </button>
+                </div>
+                <ul class="tx-list" id="tx-list"></ul>
+              </article>
+
+              <div class="stack">
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h3>Quick actions</h3>
+                      <p>Shortcuts across the app</p>
+                    </div>
+                  </div>
+                  <div class="quick-grid">
+                    <button class="quick-action" type="button" data-money="transfer">
+                      <span class="qa-icon">TR</span>
+                      Transfer
+                      <small>Send to a colleague</small>
+                    </button>
+                    <button class="quick-action" type="button" data-nav="carpool">
+                      <span class="qa-icon">CP</span>
+                      Find a ride
+                      <small>Share the commute</small>
+                    </button>
+                    <button class="quick-action" type="button" data-nav="marketplace">
+                      <span class="qa-icon">MK</span>
+                      Community market
+                      <small>Buy and sell locally</small>
+                    </button>
+                    <button class="quick-action" type="button" data-nav="restaurant">
+                      <span class="qa-icon">RS</span>
+                      Dining live
+                      <small>Check table availability</small>
+                    </button>
+                  </div>
+                </article>
+
+                <article class="panel panel-tint">
+                  <div class="panel-head">
+                    <div>
+                      <h3>SD rewards</h3>
+                      <p>Earn on every ride and order</p>
+                    </div>
+                    <span class="badge">+128 pts this week</span>
+                  </div>
+                  <p class="muted">
+                    720 points collected. Redeem at partner restaurants and the
+                    community marketplace.
+                  </p>
+                  <div class="progress" aria-hidden="true"><span style="width: 72%"></span></div>
+                  <small class="muted">720 / 1,000 points to the next reward</small>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="policy" id="view-policy" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">Policy checker</p>
+                <h2>Ask, and get the policy answer</h2>
+                <p>
+                  A simple assistant for Sime Darby travel, claims, safety and
+                  people policies. Demo responses only.
+                </p>
+              </div>
+            </div>
+
+            <div class="policy-layout">
+              <article class="panel chat-panel">
+                <div class="chat-head">
+                  <span class="assistant-avatar">P</span>
+                  <div>
+                    <h3>Policy Assistant</h3>
+                    <p><span class="status-dot"></span> Ready to help · demo knowledge base</p>
+                  </div>
+                  <button class="btn btn-ghost btn-small" type="button" id="reset-chat">
+                    Reset
+                  </button>
+                </div>
+                <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
+                <div class="chat-suggestions" id="chat-suggestions">
+                  <button type="button" data-prompt="What is the travel claim limit?">
+                    Travel claim limit
+                  </button>
+                  <button type="button" data-prompt="Can I claim mileage for carpooling?">
+                    Carpool mileage
+                  </button>
+                  <button type="button" data-prompt="How do I report a safety incident?">
+                    Safety incident
+                  </button>
+                  <button type="button" data-prompt="What is the meal allowance?">
+                    Meal allowance
+                  </button>
+                </div>
+                <form class="chat-form" id="chat-form">
+                  <label class="sr-only" for="chat-input">Ask about a policy</label>
+                  <input
+                    id="chat-input"
+                    name="message"
+                    type="text"
+                    placeholder="Ask about travel, claims, safety, leave…"
+                    autocomplete="off"
+                  />
+                  <button class="btn btn-primary" type="submit">Send</button>
+                </form>
+              </article>
+
+              <aside class="stack">
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h3>Policy topics</h3>
+                      <p>Tap a topic to ask instantly</p>
+                    </div>
+                  </div>
+                  <ul class="topic-list">
+                    <li><button type="button" data-prompt="What is the travel claim limit?"><span class="topic-icon">TR</span>Travel &amp; accommodation</button></li>
+                    <li><button type="button" data-prompt="What is the meal allowance?"><span class="topic-icon">FN</span>Meals &amp; entertainment</button></li>
+                    <li><button type="button" data-prompt="How does medical coverage work?"><span class="topic-icon">MD</span>Health &amp; medical</button></li>
+                    <li><button type="button" data-prompt="Can I claim mileage for carpooling?"><span class="topic-icon">VM</span>Vehicle &amp; mileage</button></li>
+                    <li><button type="button" data-prompt="What are the procurement thresholds?"><span class="topic-icon">PR</span>Procurement</button></li>
+                    <li><button type="button" data-prompt="How do I report a safety incident?"><span class="topic-icon">SH</span>Safety &amp; conduct</button></li>
+                    <li><button type="button" data-prompt="How do I apply for annual leave?"><span class="topic-icon">LV</span>Leave &amp; benefits</button></li>
+                  </ul>
+                </article>
+
+                <article class="panel panel-tint">
+                  <div class="panel-head">
+                    <div>
+                      <h3>How it works</h3>
+                      <p>Grounded in the demo policy set</p>
+                    </div>
+                  </div>
+                  <ul class="check-list">
+                    <li>Ask in plain language, no policy codes needed.</li>
+                    <li>Replies highlight limits, approvals and deadlines.</li>
+                    <li>For formal advice, confirm with Group HR or Finance.</li>
+                  </ul>
+                </article>
+              </aside>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="carpool" id="view-carpool" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">Carpooling</p>
+                <h2>Share the commute, split the cost</h2>
+                <p>
+                  Post a ride as a driver or request a seat as a passenger.
+                  Reserve a seat and the contribution is paid from SD-Wallet.
+                </p>
+              </div>
+            </div>
+
+            <div class="carpool-layout">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h3>Plan a shared ride</h3>
+                    <p>Choose your role and route</p>
+                  </div>
+                </div>
+
+                <div class="segmented" role="group" aria-label="Carpool role">
+                  <button class="is-active" type="button" data-carpool-role="passenger">Find a ride</button>
+                  <button type="button" data-carpool-role="driver">Offer a ride</button>
+                </div>
+
+                <form class="form-grid" id="carpool-form">
+                  <label>
+                    From
+                    <input name="from" list="location-list" type="text" placeholder="e.g. Ara Damansara" required />
+                  </label>
+                  <label>
+                    To
+                    <input name="to" list="location-list" type="text" placeholder="e.g. KLCC" required />
+                  </label>
+                  <label>
+                    Date
+                    <input name="date" type="date" required />
+                  </label>
+                  <label>
+                    Time
+                    <input name="time" type="time" required />
+                  </label>
+                  <label>
+                    Seats
+                    <input name="seats" type="number" min="1" max="6" value="1" required />
+                  </label>
+                  <label class="driver-only" hidden>
+                    Contribution (RM)
+                    <input name="price" type="number" min="0" step="0.5" value="8" />
+                  </label>
+                  <label class="driver-only form-span" hidden>
+                    Vehicle
+                    <input name="vehicle" type="text" placeholder="e.g. Perodua Ativa" />
+                  </label>
+                  <button class="btn btn-primary form-span" type="submit" id="carpool-submit">
+                    Post ride request
+                  </button>
+                </form>
+
+                <datalist id="location-list">
+                  <option value="Ara Damansara"></option>
+                  <option value="KLCC"></option>
+                  <option value="Subang Jaya"></option>
+                  <option value="Cyberjaya"></option>
+                  <option value="Petaling Jaya"></option>
+                  <option value="Bangsar"></option>
+                  <option value="Puchong"></option>
+                  <option value="Sime Darby Oasis"></option>
+                </datalist>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h3>Ride board</h3>
+                    <p>Live offers and passenger requests</p>
+                  </div>
+                  <span class="badge" id="ride-count">0 posted</span>
+                </div>
+                <div class="ride-list" id="ride-list"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="marketplace" id="view-marketplace" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">Community marketplace</p>
+                <h2>Buy, sell and reuse within the group</h2>
+                <p>
+                  A lightweight marketplace for Sime Darby colleagues. Checkout
+                  is paid straight from your SD-Wallet.
+                </p>
+              </div>
+              <button class="btn btn-primary" type="button" id="open-sell">List an item</button>
+            </div>
+
+            <div class="market-toolbar">
+              <label class="search-field">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m16 16 4 4" />
+                </svg>
+                <span class="sr-only">Search the marketplace</span>
+                <input id="market-search" type="search" placeholder="Search the community market…" />
+              </label>
+              <div class="chip-row" id="market-categories"></div>
+            </div>
+
+            <div class="market-layout">
+              <div class="product-grid" id="product-grid"></div>
+
+              <aside class="panel cart-panel">
+                <div class="panel-head">
+                  <div>
+                    <h3>Your basket</h3>
+                    <p>Pay with SD-Wallet</p>
+                  </div>
+                  <span class="badge" id="cart-count">0</span>
+                </div>
+                <div id="cart-items"></div>
+                <div class="cart-total">
+                  <span>Total</span>
+                  <strong id="cart-total">RM 0.00</strong>
+                </div>
+                <button class="btn btn-primary btn-block" type="button" id="checkout">
+                  Pay with SD-Wallet
+                </button>
+                <p class="muted small">
+                  Checkout is simulated and deducts from your demo wallet balance.
+                </p>
+              </aside>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="restaurant" id="view-restaurant" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">Restaurant monitor</p>
+                <h2>Live dining availability</h2>
+                <p>
+                  Upload restaurant photos, track table availability in real
+                  time and let owners push updates through the automation API.
+                </p>
+              </div>
+              <div class="heading-actions">
+                <span class="live-chip"><span class="pulse-dot"></span> Auto-refresh 15s</span>
+                <button class="btn btn-ghost" type="button" id="refresh-venues">Refresh</button>
+              </div>
+            </div>
+
+            <div class="restaurant-layout">
+              <div class="venue-grid" id="venue-grid"></div>
+
+              <aside class="stack">
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h3>Live activity</h3>
+                      <p>Availability updates as they happen</p>
+                    </div>
+                  </div>
+                  <ul class="activity-list" id="venue-activity"></ul>
+                </article>
+
+                <article class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h3>Owner automation API</h3>
+                      <p>Push availability from any POS or kitchen system</p>
+                    </div>
+                  </div>
+                  <p class="muted small">
+                    One PATCH call updates tables, wait time and status. The
+                    dashboard refreshes automatically.
+                  </p>
+                  <div class="api-row">
+                    <code>PATCH /api/v1/restaurants/&lt;id&gt;/availability</code>
+                    <button type="button" id="copy-api">Copy</button>
+                  </div>
+                  <pre class="code-block" id="api-snippet"></pre>
+                  <button class="btn btn-ghost btn-block" type="button" id="open-api-modal">
+                    View API contract
+                  </button>
+                </article>
+              </aside>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+    <div class="modal" id="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal-close" type="button" data-close-modal aria-label="Close">×</button>
+        <p class="eyebrow" id="modal-eyebrow">SD-Wallet</p>
+        <h2 id="modal-title"></h2>
+        <p class="muted" id="modal-subtitle"></p>
+        <form class="modal-form" id="modal-form">
+          <div class="modal-form-fields" id="modal-body"></div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-close-modal>Cancel</button>
+            <button class="btn btn-primary" type="submit" id="modal-submit">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/app.js" defer></script>
   </body>
 </html>
