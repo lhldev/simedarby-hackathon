@@ -318,6 +318,7 @@
       ],
       cart: {},
       sdPoints: 720,
+      carbonSaved: 34.6,
     };
   }
 
@@ -339,6 +340,9 @@
           : Number.isFinite(Number(saved.primePoints))
             ? Number(saved.primePoints)
             : defaults.sdPoints,
+        carbonSaved: Number.isFinite(Number(saved.carbonSaved))
+          ? Number(saved.carbonSaved)
+          : defaults.carbonSaved,
       };
     } catch (error) {
       return defaults;
@@ -485,6 +489,7 @@
     if (cashbackElement) cashbackElement.textContent = money(marketSpend * 0.02);
 
     renderSdPoints();
+    renderCarbon();
     renderTransactions();
   }
 
@@ -823,8 +828,12 @@
           "</span></div>" +
           '<div class="ride-foot"><span class="points">' +
           (isDriver
-            ? "Earn 150 SD Points / seat"
-            : '<span class="points-badge">Community Ride</span>') +
+            ? "150 SD Points · " +
+              formatKg(CARBON_PER_SHARED_RIDE) +
+              " CO₂e saved / seat"
+            : '<span class="points-badge">Community Ride · ' +
+              formatKg(CARBON_PER_SHARED_RIDE) +
+              " CO₂e</span>") +
           "</span>" +
           action +
           "</div>" +
@@ -836,6 +845,70 @@
 
   const SD_POINTS_PER_PASSENGER = 150;
   const SD_POINTS_TIER_TARGET = 1000;
+  const CARBON_PER_SHARED_RIDE = 4.2;
+  const CARBON_PER_ITEM = {
+    Electronics: 9.5,
+    Fashion: 4.8,
+    Home: 12.6,
+    Kids: 3.2,
+    Services: 1.4,
+  };
+  const CARBON_PER_ITEM_DEFAULT = 4;
+  const ECO_MILESTONE_KG = 50;
+
+  function formatKg(value) {
+    return Number(value || 0).toFixed(1) + " kg";
+  }
+
+  function carbonForListing(listing) {
+    return Object.prototype.hasOwnProperty.call(CARBON_PER_ITEM, listing.category)
+      ? CARBON_PER_ITEM[listing.category]
+      : CARBON_PER_ITEM_DEFAULT;
+  }
+
+  function awardCarbon(amount) {
+    state.carbonSaved =
+      Math.round((Number(state.carbonSaved || 0) + Number(amount || 0)) * 10) /
+      10;
+  }
+
+  function renderCarbon() {
+    const total = Number(state.carbonSaved) || 0;
+    const nextGoal =
+      Math.floor(total / ECO_MILESTONE_KG) * ECO_MILESTONE_KG +
+      ECO_MILESTONE_KG;
+    const percent = Math.min(100, (total / nextGoal) * 100);
+    const kmAvoided = Math.round(total / 0.192);
+    const trees = Math.round(total / 21);
+
+    $$("[data-carbon]").forEach(function (element) {
+      element.textContent = formatKg(total);
+    });
+    $$("[data-carbon-bar]").forEach(function (element) {
+      element.style.width = percent + "%";
+      const meter = element.closest("[data-carbon-meter]");
+      if (meter) {
+        meter.setAttribute("aria-valuenow", total.toFixed(1));
+        meter.setAttribute("aria-valuemax", String(nextGoal));
+        meter.setAttribute(
+          "aria-valuetext",
+          total.toFixed(1) + " kilograms of CO2 equivalent saved",
+        );
+      }
+    });
+    $$("[data-carbon-next]").forEach(function (element) {
+      element.textContent =
+        formatKg(total) + " of " + nextGoal + " kg to the next eco milestone";
+    });
+    $$("[data-carbon-equivalent]").forEach(function (element) {
+      element.textContent =
+        "≈ " +
+        kmAvoided.toLocaleString("en-MY") +
+        " km driving avoided · " +
+        trees.toLocaleString("en-MY") +
+        " tree-year(s)";
+    });
+  }
 
   function renderSdPoints() {
     const value = state.sdPoints.toLocaleString("en-MY");
@@ -896,14 +969,18 @@
     if (!ride || ride.role !== "driver" || ride.seats < 1) return;
 
     ride.seats -= 1;
+    awardCarbon(CARBON_PER_SHARED_RIDE);
     saveState();
     renderRides();
+    renderCarbon();
     showToast(
       "Seat reserved — " +
         ride.name +
         " earned " +
         SD_POINTS_PER_PASSENGER +
-        " SD Points. " +
+        " SD Points. +" +
+        formatKg(CARBON_PER_SHARED_RIDE) +
+        " CO₂e saved. " +
         (ride.seats > 0 ? ride.seats + " seat(s) still available." : "This ride is now full."),
     );
   }
@@ -1078,6 +1155,9 @@
       showToast("Insufficient wallet balance for this order.", "error");
       return;
     }
+    const carbonSaved = cartEntries().reduce(function (sum, entry) {
+      return sum + carbonForListing(entry.listing) * entry.quantity;
+    }, 0);
     state.balance -= totals.total;
     state.transactions.unshift({
       id: uid(),
@@ -1088,11 +1168,18 @@
       kind: "market",
       at: new Date().toISOString(),
     });
+    awardCarbon(carbonSaved);
     state.cart = {};
     saveState();
     renderMarketplace();
     renderWallet();
-    showToast("Order placed. " + money(totals.total) + " paid with SD-Wallet.");
+    showToast(
+      "Order placed. " +
+        money(totals.total) +
+        " paid with SD-Wallet. +" +
+        formatKg(carbonSaved) +
+        " CO₂e saved by reusing items.",
+    );
   }
 
   function openSellModal() {
@@ -1128,7 +1215,7 @@
           showToast("Enter a valid price.", "error");
           return;
         }
-        state.listings.unshift({
+        const listing = {
           id: uid(),
           name: String(formData.get("name") || "").trim(),
           price: price,
@@ -1136,15 +1223,22 @@
           condition: String(formData.get("condition") || "Used"),
           seller: "You",
           description: String(formData.get("description") || "").trim(),
-        });
+        };
+        state.listings.unshift(listing);
+        awardCarbon(carbonForListing(listing));
         marketCategory = "All";
         marketQuery = "";
         const search = $("#market-search");
         if (search) search.value = "";
         saveState();
         renderMarketplace();
+        renderCarbon();
         closeModal();
-        showToast("Your listing is live in the community market.");
+        showToast(
+          "Your listing is live. +" +
+            formatKg(carbonForListing(listing)) +
+            " CO₂e saved by reusing an item.",
+        );
       },
     });
   }
@@ -1628,13 +1722,16 @@
         SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
       );
+      awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderSdPoints();
       renderWallet();
       showToast(
         "Interest sent — you earned " +
           SD_POINTS_PER_PASSENGER +
-          " SD Points for offering a seat.",
+          " SD Points and +" +
+          formatKg(CARBON_PER_SHARED_RIDE) +
+          " CO₂e was saved.",
       );
       return;
     }
@@ -1764,12 +1861,17 @@
             : "Ride request",
         isMine: true,
       });
+      awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderRides();
+      renderCarbon();
       showToast(
-        carpoolRole === "driver"
+        (carpoolRole === "driver"
           ? "Ride published to the carpool board."
-          : "Ride request posted. Drivers can now offer a seat.",
+          : "Ride request posted. Drivers can now offer a seat.") +
+          " +" +
+          formatKg(CARBON_PER_SHARED_RIDE) +
+          " CO₂e added to the eco bar.",
       );
       carpoolForm.reset();
       $("#carpool-form [name='date']").value = localDateInput();

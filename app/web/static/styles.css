@@ -894,6 +894,129 @@ button {
   white-space: nowrap;
 }
 
+.eco-panel {
+  position: relative;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border-color: rgba(0, 56, 102, 0.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 107, 18, 0.1), transparent 38%),
+    linear-gradient(120deg, rgba(0, 56, 102, 0.05), #fff 55%);
+}
+
+.eco-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--sime-navy-08);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, var(--sime-orange-12), transparent 42%),
+    var(--sime-surface);
+  box-shadow: 0 6px 18px rgba(0, 29, 51, 0.04);
+}
+
+.eco-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.eco-mark {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--sime-navy), #0a5c9c);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.eco-strip .eco-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 0.6rem;
+}
+
+.eco-copy h3 {
+  margin: 0;
+  color: var(--sime-navy);
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+}
+
+.eco-copy p {
+  margin: 3px 0 0;
+  color: var(--sime-muted);
+  font-size: 0.74rem;
+}
+
+.eco-total {
+  flex: none;
+  margin-left: auto;
+  text-align: right;
+}
+
+.eco-total strong {
+  display: block;
+  color: var(--sime-navy);
+  font-size: 1.55rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.eco-strip .eco-total strong {
+  font-size: 1.15rem;
+}
+
+.eco-total small {
+  color: var(--sime-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eco-bar {
+  height: 14px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 56, 102, 0.08);
+}
+
+.eco-strip .eco-bar {
+  margin-top: 0;
+}
+
+.eco-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--sime-navy),
+    #0a5c9c 55%,
+    var(--sime-orange)
+  );
+  transition: width 0.5s ease;
+}
+
+.eco-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--sime-muted);
+  font-size: 0.7rem;
+}
+
 .bylaws-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.7fr);
@@ -2354,6 +2477,21 @@ textarea {
 
   .view-heading {
     align-items: flex-start;
+  }
+
+  .eco-head {
+    flex-wrap: wrap;
+  }
+
+  .eco-total {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .eco-foot {
+    flex-direction: column;
+    gap: 2px;
   }
 
   .product-grid {
