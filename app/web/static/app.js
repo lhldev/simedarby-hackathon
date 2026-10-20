@@ -114,7 +114,7 @@
     topup: "TP",
     pay: "PY",
     transfer: "TR",
-    ride: "CR",
+    ride: "CP",
     market: "MK",
     reward: "RW",
   };
@@ -127,10 +127,10 @@
       transactions: [
         {
           id: uid(),
-          title: "Carpool contribution",
+          title: "SD reward points earned",
           meta: "Ara Damansara to KLCC · Farah I.",
-          amount: 8,
-          direction: "out",
+          amount: 300,
+          direction: "in",
           kind: "ride",
           at: daysAgo(0, 8, 12),
         },
@@ -191,7 +191,6 @@
           date: "Today",
           time: "07:45",
           seats: 2,
-          price: 8,
           vehicle: "Perodua Ativa",
           isMine: false,
         },
@@ -205,7 +204,6 @@
           date: "Today",
           time: "08:10",
           seats: 3,
-          price: 6,
           vehicle: "Honda City",
           isMine: false,
         },
@@ -219,7 +217,6 @@
           date: "Tomorrow",
           time: "08:00",
           seats: 1,
-          price: 0,
           vehicle: "Ride request",
           isMine: false,
         },
@@ -233,7 +230,6 @@
           date: "Tomorrow",
           time: "07:30",
           seats: 1,
-          price: 10,
           vehicle: "Toyota Vios",
           isMine: false,
         },
@@ -247,7 +243,6 @@
           date: "Today",
           time: "18:15",
           seats: 3,
-          price: 5,
           vehicle: "Proton X50",
           isMine: false,
         },
@@ -261,7 +256,6 @@
           date: "Weekdays",
           time: "18:30",
           seats: 1,
-          price: 0,
           vehicle: "Return trip request",
           isMine: false,
         },
@@ -323,6 +317,7 @@
         },
       ],
       cart: {},
+      sdPoints: 720,
     };
   }
 
@@ -339,6 +334,11 @@
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
+        sdPoints: Number.isFinite(Number(saved.sdPoints))
+          ? Number(saved.sdPoints)
+          : Number.isFinite(Number(saved.primePoints))
+            ? Number(saved.primePoints)
+            : defaults.sdPoints,
       };
     } catch (error) {
       return defaults;
@@ -484,11 +484,7 @@
     const cashbackElement = $("[data-cashback]");
     if (cashbackElement) cashbackElement.textContent = money(marketSpend * 0.02);
 
-    const pointsElement = $("[data-points]");
-    if (pointsElement) {
-      pointsElement.textContent = String(720 + Math.round(marketSpend / 10));
-    }
-
+    renderSdPoints();
     renderTransactions();
   }
 
@@ -765,7 +761,6 @@
       .slice(0, 10)
       .map(function (ride) {
         const isDriver = ride.role === "driver";
-        const price = Number(ride.price) || 0;
         const seatText = isDriver
           ? ride.seats + (ride.seats === 1 ? " seat left" : " seats left")
           : ride.seats + (ride.seats === 1 ? " seat needed" : " seats needed");
@@ -780,7 +775,7 @@
             '"' +
             (ride.seats < 1 ? " disabled" : "") +
             ">" +
-            (ride.seats < 1 ? "Full" : "Reserve seat" + (price ? " · " + money(price) : "")) +
+            (ride.seats < 1 ? "Full" : "Join ride · Free") +
             "</button>";
         } else {
           action =
@@ -826,8 +821,10 @@
           "</span><span>" +
           seatText +
           "</span></div>" +
-          '<div class="ride-foot"><span class="price">' +
-          (price ? money(price) + " / seat" : "No contribution set") +
+          '<div class="ride-foot"><span class="points">' +
+          (isDriver
+            ? "Earn 150 SD Points / seat"
+            : '<span class="points-badge">Community Ride</span>') +
           "</span>" +
           action +
           "</div>" +
@@ -837,37 +834,77 @@
       .join("");
   }
 
+  const SD_POINTS_PER_PASSENGER = 150;
+  const SD_POINTS_TIER_TARGET = 1000;
+
+  function renderSdPoints() {
+    const value = state.sdPoints.toLocaleString("en-MY");
+    $$("[data-points]").forEach(function (element) {
+      element.textContent = value;
+    });
+    const badge = $("#sd-points");
+    if (badge) badge.textContent = value;
+
+    const intoTier = state.sdPoints % SD_POINTS_TIER_TARGET;
+    const nextReward = $("#sd-points-next");
+    if (nextReward) {
+      nextReward.textContent =
+        intoTier.toLocaleString("en-MY") +
+        " / " +
+        SD_POINTS_TIER_TARGET.toLocaleString("en-MY") +
+        " points to the next reward";
+    }
+    const progress = document.querySelector("#sd-points-progress span");
+    if (progress) {
+      progress.style.width = (intoTier / SD_POINTS_TIER_TARGET) * 100 + "%";
+    }
+
+    const week = state.transactions
+      .filter(function (transaction) {
+        return (
+          transaction.kind === "reward" &&
+          transaction.direction === "in" &&
+          isThisMonth(transaction.at)
+        );
+      })
+      .reduce(function (sum, transaction) {
+        return sum + Number(transaction.amount || 0);
+      }, 0);
+    const weekBadge = $("#sd-points-week");
+    if (weekBadge) {
+      weekBadge.textContent = "+" + week.toLocaleString("en-MY") + " pts this week";
+    }
+  }
+
+  function awardSdPoints(amount, meta) {
+    state.sdPoints += amount;
+    state.transactions.unshift({
+      id: uid(),
+      title: "SD reward points earned",
+      meta: meta,
+      amount: amount,
+      direction: "in",
+      kind: "reward",
+      at: new Date().toISOString(),
+    });
+  }
+
   function reserveRide(id) {
     const ride = state.rides.find(function (candidate) {
       return candidate.id === id;
     });
     if (!ride || ride.role !== "driver" || ride.seats < 1) return;
-    const price = Number(ride.price) || 0;
-    if (price > state.balance) {
-      showToast("Insufficient wallet balance for this contribution.", "error");
-      return;
-    }
 
     ride.seats -= 1;
-    if (price > 0) {
-      state.balance -= price;
-      state.transactions.unshift({
-        id: uid(),
-        title: "Carpool · " + ride.from + " to " + ride.to,
-        meta: "Seat reserved with " + ride.name,
-        amount: price,
-        direction: "out",
-        kind: "ride",
-        at: new Date().toISOString(),
-      });
-    }
     saveState();
     renderRides();
-    renderWallet();
     showToast(
-      ride.seats > 0
-        ? "Seat reserved. " + ride.seats + " seat(s) still available."
-        : "Seat reserved. This ride is now full.",
+      "Seat reserved — " +
+        ride.name +
+        " earned " +
+        SD_POINTS_PER_PASSENGER +
+        " SD Points. " +
+        (ride.seats > 0 ? ride.seats + " seat(s) still available." : "This ride is now full."),
     );
   }
 
@@ -1587,7 +1624,18 @@
 
     const offerButton = event.target.closest("[data-offer-seat]");
     if (offerButton) {
-      showToast("Interest sent. The passenger will see your offer on the ride board.");
+      awardSdPoints(
+        SD_POINTS_PER_PASSENGER,
+        "Community ride · you offered a seat to a neighbour",
+      );
+      saveState();
+      renderSdPoints();
+      renderWallet();
+      showToast(
+        "Interest sent — you earned " +
+          SD_POINTS_PER_PASSENGER +
+          " SD Points for offering a seat.",
+      );
       return;
     }
 
@@ -1698,7 +1746,6 @@
       const date = String(data.get("date") || localDateInput());
       const time = String(data.get("time") || "08:00");
       const seats = Math.min(6, Math.max(1, Number(data.get("seats")) || 1));
-      const price = Math.max(0, Number(data.get("price")) || 0);
       const vehicle = String(data.get("vehicle") || "").trim();
 
       state.rides.unshift({
@@ -1711,7 +1758,6 @@
         date: date,
         time: time,
         seats: seats,
-        price: carpoolRole === "driver" ? price : 0,
         vehicle:
           carpoolRole === "driver"
             ? vehicle || "Your vehicle"
@@ -1774,6 +1820,7 @@
   setCarpoolRole("passenger");
   renderWallet();
   renderRides();
+  renderSdPoints();
   renderMarketplace();
   renderActivity();
   updateApiSnippet();
