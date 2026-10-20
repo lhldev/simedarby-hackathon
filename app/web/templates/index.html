@@ -153,6 +153,35 @@
               </article>
             </div>
 
+            <article class="panel eco-panel">
+              <div class="eco-head">
+                <span class="eco-mark" aria-hidden="true">CO₂</span>
+                <div class="eco-copy">
+                  <h3>Carbon emissions saved</h3>
+                  <p>Symbolic CO₂e avoided through shared rides and marketplace reuse</p>
+                </div>
+                <div class="eco-total">
+                  <strong data-carbon>0.0 kg</strong>
+                  <small>CO₂e saved</small>
+                </div>
+              </div>
+              <div
+                class="eco-bar"
+                data-carbon-meter
+                role="progressbar"
+                aria-label="Symbolic carbon emissions saved"
+                aria-valuemin="0"
+                aria-valuemax="50"
+                aria-valuenow="0"
+              >
+                <span data-carbon-bar style="width: 0%"></span>
+              </div>
+              <div class="eco-foot">
+                <span data-carbon-next>0.0 of 50 kg to the next eco milestone</span>
+                <span data-carbon-equivalent>Symbolic estimate only</span>
+              </div>
+            </article>
+
             <div class="dashboard-grid">
               <article class="panel">
                 <div class="panel-head">
@@ -316,12 +345,42 @@
                 <p>
                   Post a ride as a driver or request a seat as a passenger.
                   Carpooling in the township is cash-free — drivers earn
-                  150 SD reward points per passenger.
+                  150 SD reward points per passenger, and every shared ride
+                  adds symbolic carbon savings to the community bar.
                 </p>
               </div>
               <div class="sd-points-badge" title="SD reward points balance">
                 <span class="sd-points-badge-label">SD Points</span>
                 <strong id="sd-points">0</strong>
+              </div>
+            </div>
+
+            <div class="eco-strip">
+              <div class="eco-head">
+                <span class="eco-mark" aria-hidden="true">CO₂</span>
+                <div class="eco-copy">
+                  <h3>Community carbon saved</h3>
+                  <p>Each shared ride adds a symbolic 4.2 kg CO₂e to the bar</p>
+                </div>
+                <div class="eco-total">
+                  <strong data-carbon>0.0 kg</strong>
+                  <small>CO₂e saved</small>
+                </div>
+              </div>
+              <div
+                class="eco-bar"
+                data-carbon-meter
+                role="progressbar"
+                aria-label="Symbolic carbon emissions saved"
+                aria-valuemin="0"
+                aria-valuemax="50"
+                aria-valuenow="0"
+              >
+                <span data-carbon-bar style="width: 0%"></span>
+              </div>
+              <div class="eco-foot">
+                <span data-carbon-next>0.0 of 50 kg to the next eco milestone</span>
+                <span data-carbon-equivalent>Symbolic estimate only</span>
               </div>
             </div>
 
@@ -405,10 +464,40 @@
                 <h2>Buy, sell and reuse within the group</h2>
                 <p>
                   A lightweight marketplace for Sime Darby colleagues. Checkout
-                  is paid straight from your SD-Wallet.
+                  is paid straight from your SD-Wallet, and every reused item
+                  adds a symbolic carbon saving to the community bar.
                 </p>
               </div>
               <button class="btn btn-primary" type="button" id="open-sell">List an item</button>
+            </div>
+
+            <div class="eco-strip">
+              <div class="eco-head">
+                <span class="eco-mark" aria-hidden="true">CO₂</span>
+                <div class="eco-copy">
+                  <h3>Community carbon saved</h3>
+                  <p>Buying, selling and reusing items keeps embodied carbon in circulation</p>
+                </div>
+                <div class="eco-total">
+                  <strong data-carbon>0.0 kg</strong>
+                  <small>CO₂e saved</small>
+                </div>
+              </div>
+              <div
+                class="eco-bar"
+                data-carbon-meter
+                role="progressbar"
+                aria-label="Symbolic carbon emissions saved"
+                aria-valuemin="0"
+                aria-valuemax="50"
+                aria-valuenow="0"
+              >
+                <span data-carbon-bar style="width: 0%"></span>
+              </div>
+              <div class="eco-foot">
+                <span data-carbon-next>0.0 of 50 kg to the next eco milestone</span>
+                <span data-carbon-equivalent>Symbolic estimate only</span>
+              </div>
             </div>
 
             <div class="market-toolbar">
