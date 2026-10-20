@@ -1459,6 +1459,55 @@ textarea {
   font-weight: 800;
 }
 
+.points {
+  display: inline-flex;
+  align-items: center;
+  color: var(--sime-navy);
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+
+.points-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--sime-navy-08);
+  color: var(--sime-navy);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.prime-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--sime-navy);
+  color: #fff;
+}
+
+.prime-badge-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+
+.prime-badge strong {
+  font-size: 1.15rem;
+}
+
+.form-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(0, 56, 102, 0.7);
+}
+
 .market-toolbar {
   display: flex;
   align-items: center;

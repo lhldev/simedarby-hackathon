@@ -8,8 +8,9 @@ Sime Darby-branded app:
 2. **Township By-Laws Alignment** — a streaming chatbot powered by GrafilyLab
    that answers property use, renovation, parking, pet, waste, common-area and
    enforcement questions using `mock-by-laws.txt` as its only knowledge source.
-3. **Carpooling** — post a ride as a driver or request a seat as a passenger,
-   pay the contribution from the wallet and watch seats update on the board.
+3. **Carpooling** — post a ride as a driver or request a seat as a passenger.
+   Carpooling is cash-free: drivers earn 150 PRIME Reward Points per passenger
+   and seats update live on the board.
 4. **Community Marketplace** — search and filter internal listings, add items
    to a basket and check out with SD-Wallet.
 5. **Restaurant Monitor** — live table availability, photo uploads, owner
@@ -53,9 +54,10 @@ All modules reuse the same primitives: `panel`, `view-heading`, `btn`,
 `tone-*` thumbnail gradients. Each feature is a self-contained view inside one
 shell, so switching sections never reloads the page.
 
-Wallet interactions are also woven into the other modules: reserving a carpool
-seat, checking out a marketplace basket and posting a listing all update the
-same balance and transaction history.
+Wallet interactions are also woven into the other modules: checking out a
+marketplace basket and posting a listing update the same balance and transaction
+history. Carpooling is cash-free and instead awards PRIME Reward Points, which
+appear as transactions and on the PRIME Points badge in the Carpool view.
 
 ### Demo behaviour
 
@@ -63,7 +65,7 @@ same balance and transaction history.
 | --- | --- |
 | Wallet | In-browser balance, transactions, top-up/pay/transfer modal, rewards summary. |
 | By-Laws Alignment | GrafilyLab-assisted streaming answers grounded in `mock-by-laws.txt`, plus suggested prompts. |
-| Carpool | Role toggle, route form, ride board, seat reservation and wallet contribution. |
+| Carpool | Role toggle, route form, ride board, seat reservation and PRIME Reward Points. |
 | Marketplace | Search, category filters, listing creation, basket quantities and checkout. |
 | Restaurants | API-backed availability, 15-second polling, photo previews, status toggles and activity feed. |
 
