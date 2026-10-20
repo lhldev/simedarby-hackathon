@@ -20,6 +20,15 @@
       return entities[character];
     });
 
+  const renderMarkdown = (value) => {
+    const text = String(value || "");
+    if (!text) return "";
+    if (!window.marked || !window.DOMPurify) return escapeHtml(text);
+    return DOMPurify.sanitize(
+      marked.parse(text, { gfm: true, breaks: true }),
+    );
+  };
+
   const money = (value) =>
     "RM " +
     Number(value || 0).toLocaleString("en-MY", {
@@ -630,8 +639,10 @@
           '<span class="chat-avatar">' +
           (isUser ? "AR" : "BL") +
           "</span>" +
-          '<div class="bubble">' +
-          escapeHtml(message.text) +
+          '<div class="bubble' +
+          (isUser ? "" : " markdown") +
+          '">' +
+          (isUser ? escapeHtml(message.text) : renderMarkdown(message.text)) +
           "</div>" +
           "</div>"
         );
