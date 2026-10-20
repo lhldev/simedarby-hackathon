@@ -205,14 +205,14 @@
                       <h3>SD rewards</h3>
                       <p>Earn on every ride and order</p>
                     </div>
-                    <span class="badge">+128 pts this week</span>
+                    <span class="badge" id="sd-points-week">+128 pts this week</span>
                   </div>
                   <p class="muted">
-                    720 points collected. Redeem at partner restaurants and the
-                    community marketplace.
+                    <span data-points>720</span> points collected. Redeem at
+                    partner restaurants and the community marketplace.
                   </p>
-                  <div class="progress" aria-hidden="true"><span style="width: 72%"></span></div>
-                  <small class="muted">720 / 1,000 points to the next reward</small>
+                  <div class="progress" aria-hidden="true" id="sd-points-progress"><span style="width: 72%"></span></div>
+                  <small class="muted" id="sd-points-next">720 / 1,000 points to the next reward</small>
                 </article>
               </div>
             </div>
@@ -312,16 +312,16 @@
             <div class="view-heading">
               <div>
                 <p class="eyebrow">Carpooling</p>
-                <h2>Share the ride, earn PRIME Points</h2>
+                <h2>Share the ride, earn SD Points</h2>
                 <p>
                   Post a ride as a driver or request a seat as a passenger.
                   Carpooling in the township is cash-free — drivers earn
-                  150 PRIME Reward Points per passenger.
+                  150 SD reward points per passenger.
                 </p>
               </div>
-              <div class="prime-badge" title="PRIME Reward Points balance">
-                <span class="prime-badge-label">PRIME Points</span>
-                <strong id="prime-points">0</strong>
+              <div class="sd-points-badge" title="SD reward points balance">
+                <span class="sd-points-badge-label">SD Points</span>
+                <strong id="sd-points">0</strong>
               </div>
             </div>
 
@@ -361,7 +361,7 @@
                     <input name="seats" type="number" min="1" max="6" value="1" required />
                   </label>
                   <p class="form-hint driver-only form-span" hidden>
-                    Cash-free community: you'll earn 150 PRIME Points per
+                    Cash-free community: you'll earn 150 SD reward points per
                     passenger who joins your ride.
                   </p>
                   <label class="driver-only form-span" hidden>

@@ -127,7 +127,7 @@
       transactions: [
         {
           id: uid(),
-          title: "PRIME Points earned",
+          title: "SD reward points earned",
           meta: "Ara Damansara to KLCC · Farah I.",
           amount: 300,
           direction: "in",
@@ -317,7 +317,7 @@
         },
       ],
       cart: {},
-      primePoints: 250,
+      sdPoints: 720,
     };
   }
 
@@ -334,9 +334,11 @@
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
-        primePoints: Number.isFinite(Number(saved.primePoints))
-          ? Number(saved.primePoints)
-          : defaults.primePoints,
+        sdPoints: Number.isFinite(Number(saved.sdPoints))
+          ? Number(saved.sdPoints)
+          : Number.isFinite(Number(saved.primePoints))
+            ? Number(saved.primePoints)
+            : defaults.sdPoints,
       };
     } catch (error) {
       return defaults;
@@ -482,11 +484,7 @@
     const cashbackElement = $("[data-cashback]");
     if (cashbackElement) cashbackElement.textContent = money(marketSpend * 0.02);
 
-    const pointsElement = $("[data-points]");
-    if (pointsElement) {
-      pointsElement.textContent = String(720 + Math.round(marketSpend / 10));
-    }
-
+    renderSdPoints();
     renderTransactions();
   }
 
@@ -825,7 +823,7 @@
           "</span></div>" +
           '<div class="ride-foot"><span class="points">' +
           (isDriver
-            ? "Earn 150 PRIME Points / seat"
+            ? "Earn 150 SD Points / seat"
             : '<span class="points-badge">Community Ride</span>') +
           "</span>" +
           action +
@@ -836,18 +834,53 @@
       .join("");
   }
 
-  const PRIME_POINTS_PER_PASSENGER = 150;
+  const SD_POINTS_PER_PASSENGER = 150;
+  const SD_POINTS_TIER_TARGET = 1000;
 
-  function renderPrimePoints() {
-    const badge = $("#prime-points");
-    if (badge) badge.textContent = state.primePoints.toLocaleString("en-MY");
+  function renderSdPoints() {
+    const value = state.sdPoints.toLocaleString("en-MY");
+    $$("[data-points]").forEach(function (element) {
+      element.textContent = value;
+    });
+    const badge = $("#sd-points");
+    if (badge) badge.textContent = value;
+
+    const intoTier = state.sdPoints % SD_POINTS_TIER_TARGET;
+    const nextReward = $("#sd-points-next");
+    if (nextReward) {
+      nextReward.textContent =
+        intoTier.toLocaleString("en-MY") +
+        " / " +
+        SD_POINTS_TIER_TARGET.toLocaleString("en-MY") +
+        " points to the next reward";
+    }
+    const progress = document.querySelector("#sd-points-progress span");
+    if (progress) {
+      progress.style.width = (intoTier / SD_POINTS_TIER_TARGET) * 100 + "%";
+    }
+
+    const week = state.transactions
+      .filter(function (transaction) {
+        return (
+          transaction.kind === "reward" &&
+          transaction.direction === "in" &&
+          isThisMonth(transaction.at)
+        );
+      })
+      .reduce(function (sum, transaction) {
+        return sum + Number(transaction.amount || 0);
+      }, 0);
+    const weekBadge = $("#sd-points-week");
+    if (weekBadge) {
+      weekBadge.textContent = "+" + week.toLocaleString("en-MY") + " pts this week";
+    }
   }
 
-  function awardPrimePoints(amount, meta) {
-    state.primePoints += amount;
+  function awardSdPoints(amount, meta) {
+    state.sdPoints += amount;
     state.transactions.unshift({
       id: uid(),
-      title: "PRIME Points earned",
+      title: "SD reward points earned",
       meta: meta,
       amount: amount,
       direction: "in",
@@ -869,8 +902,8 @@
       "Seat reserved — " +
         ride.name +
         " earned " +
-        PRIME_POINTS_PER_PASSENGER +
-        " PRIME Points. " +
+        SD_POINTS_PER_PASSENGER +
+        " SD Points. " +
         (ride.seats > 0 ? ride.seats + " seat(s) still available." : "This ride is now full."),
     );
   }
@@ -1591,17 +1624,17 @@
 
     const offerButton = event.target.closest("[data-offer-seat]");
     if (offerButton) {
-      awardPrimePoints(
-        PRIME_POINTS_PER_PASSENGER,
+      awardSdPoints(
+        SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
       );
       saveState();
-      renderPrimePoints();
+      renderSdPoints();
       renderWallet();
       showToast(
         "Interest sent — you earned " +
-          PRIME_POINTS_PER_PASSENGER +
-          " PRIME Points for offering a seat.",
+          SD_POINTS_PER_PASSENGER +
+          " SD Points for offering a seat.",
       );
       return;
     }
@@ -1787,7 +1820,7 @@
   setCarpoolRole("passenger");
   renderWallet();
   renderRides();
-  renderPrimePoints();
+  renderSdPoints();
   renderMarketplace();
   renderActivity();
   updateApiSnippet();

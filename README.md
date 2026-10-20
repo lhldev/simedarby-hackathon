@@ -9,7 +9,7 @@ Sime Darby-branded app:
    that answers property use, renovation, parking, pet, waste, common-area and
    enforcement questions using `mock-by-laws.txt` as its only knowledge source.
 3. **Carpooling** — post a ride as a driver or request a seat as a passenger.
-   Carpooling is cash-free: drivers earn 150 PRIME Reward Points per passenger
+   Carpooling is cash-free: drivers earn 150 SD reward points per passenger
    and seats update live on the board.
 4. **Community Marketplace** — search and filter internal listings, add items
    to a basket and check out with SD-Wallet.
@@ -56,8 +56,9 @@ shell, so switching sections never reloads the page.
 
 Wallet interactions are also woven into the other modules: checking out a
 marketplace basket and posting a listing update the same balance and transaction
-history. Carpooling is cash-free and instead awards PRIME Reward Points, which
-appear as transactions and on the PRIME Points badge in the Carpool view.
+history. Carpooling is cash-free and instead awards SD reward points — the same
+single points balance shown in the SD rewards panel — which appear as
+transactions and on the SD Points badge in the Carpool view.
 
 ### Demo behaviour
 
@@ -65,7 +66,7 @@ appear as transactions and on the PRIME Points badge in the Carpool view.
 | --- | --- |
 | Wallet | In-browser balance, transactions, top-up/pay/transfer modal, rewards summary. |
 | By-Laws Alignment | GrafilyLab-assisted streaming answers grounded in `mock-by-laws.txt`, plus suggested prompts. |
-| Carpool | Role toggle, route form, ride board, seat reservation and PRIME Reward Points. |
+| Carpool | Role toggle, route form, ride board, seat reservation and SD reward points. |
 | Marketplace | Search, category filters, listing creation, basket quantities and checkout. |
 | Restaurants | API-backed availability, 15-second polling, photo previews, status toggles and activity feed. |
 

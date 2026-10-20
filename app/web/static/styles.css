@@ -1479,7 +1479,7 @@ textarea {
   letter-spacing: 0.02em;
 }
 
-.prime-badge {
+.sd-points-badge {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -1490,14 +1490,14 @@ textarea {
   color: #fff;
 }
 
-.prime-badge-label {
+.sd-points-badge-label {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.75;
 }
 
-.prime-badge strong {
+.sd-points-badge strong {
   font-size: 1.15rem;
 }
 
