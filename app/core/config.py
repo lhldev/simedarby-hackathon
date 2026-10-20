@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://user:password@localhost:5432/simedarby_hackathon"
     )
+    grafilab_key: str = ""
+    grafilab_base_url: str = "https://llm.grafilab.ai/v1/chat/completions"
+    grafilab_model: str = "tencent/hy3"
 
 
 settings = Settings()

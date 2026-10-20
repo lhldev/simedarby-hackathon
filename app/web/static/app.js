@@ -350,7 +350,7 @@
 
   const VIEW_META = {
     wallet: { eyebrow: "All-in-one", title: "SD-Wallet" },
-    policy: { eyebrow: "Assistant", title: "Policy Checker" },
+    bylaws: { eyebrow: "Township", title: "By-Laws Alignment" },
     carpool: { eyebrow: "Community", title: "Carpool" },
     marketplace: { eyebrow: "Community", title: "Marketplace" },
     restaurant: { eyebrow: "Live operations", title: "Restaurant Monitor" },
@@ -611,7 +611,7 @@
       {
         role: "assistant",
         text:
-          "Hi Aisyah. I can check Sime Darby policies on travel, claims, safety, procurement, leave and more. What would you like to know?",
+          "Hi Aisyah. I can check the township by-laws on property use, renovations, parking, pets, waste, common areas and enforcement. What would you like to know?",
       },
     ];
     renderChat();
@@ -628,7 +628,7 @@
           (isUser ? "user" : "assistant") +
           '">' +
           '<span class="chat-avatar">' +
-          (isUser ? "AR" : "P") +
+          (isUser ? "AR" : "BL") +
           "</span>" +
           '<div class="bubble">' +
           escapeHtml(message.text) +
@@ -640,77 +640,93 @@
     log.scrollTop = log.scrollHeight;
   }
 
-  const POLICY_ANSWERS = [
-    {
-      match: /travel|flight|hotel|trip|accommodation/i,
-      reply:
-        "Travel & accommodation\n· Economy class for flights under 6 hours; business class needs divisional director approval.\n· Hotel cap: RM 450/night in Klang Valley, RM 350/night elsewhere.\n· Submit claims within 21 days with receipts in the expense portal.",
-    },
-    {
-      match: /meal|food|entertain|dinner|allowance/i,
-      reply:
-        "Meal allowance\n· Overtime meal: RM 25 per meal after 7pm.\n· Client entertainment: pre-approval above RM 300 per person.\n· Itemise receipts and list attendees in the claim.",
-    },
-    {
-      match: /medical|health|clinic|hospital|insurance|wellness/i,
-      reply:
-        "Health & medical\n· Panel clinics are cashless with your staff ID.\n· Specialist referrals need a panel GP letter.\n· Annual screening is covered once per calendar year.",
-    },
-    {
-      match: /\bcar\b|vehicle|mileage|petrol|fuel|parking|toll|carpool/i,
-      reply:
-        "Vehicle & mileage\n· Mileage: RM 0.65/km for approved business travel.\n· Carpooling on company business is encouraged; tolls and parking are reimbursable with receipts.\n· Personal commuting is not claimable.",
-    },
-    {
-      match: /safety|incident|hazard|accident|report/i,
-      reply:
-        "Safety & conduct\n· Report incidents within 24 hours through the SHE portal or the emergency line.\n· Near-misses should also be logged — no blame, just learning.\n· Serious incidents: secure the area, notify your line manager, then call ext. 911.",
-    },
-    {
-      match: /leave|annual|vacation|holiday|medical leave/i,
-      reply:
-        "Leave & benefits\n· Apply for annual leave at least 3 working days ahead in the HR portal.\n· Medical leave requires an MC uploaded within 48 hours.\n· Carry-forward is capped at 5 days unless the policy says otherwise.",
-    },
-    {
-      match: /procure|purchase|vendor|supplier|quotation|tender/i,
-      reply:
-        "Procurement\n· Below RM 5,000: single quote with manager approval.\n· RM 5,000–RM 50,000: three quotes and procurement review.\n· Above RM 50,000: formal tender through Group Procurement.",
-    },
-    {
-      match: /wallet|payment|claim status|reimburse|expense/i,
-      reply:
-        "Claims & wallet\n· Expense claims are reimbursed to SD-Wallet within 5 working days after approval.\n· Track claim status in the portal; rejected items show a reason code.\n· For wallet disputes, raise a ticket under Finance > Wallet.",
-    },
-  ];
-
-  function policyAnswer(question) {
-    const rule = POLICY_ANSWERS.find(function (candidate) {
-      return candidate.match.test(question);
-    });
-    if (rule) return rule.reply;
-    return "I could not find an exact match in the demo policy set. Try asking about travel, meals, medical cover, mileage, leave, safety or procurement. You can also contact Group HR at hr@sime.com.my.";
-  }
-
-  function sendChat(value) {
+  async function sendChat(value) {
     const text = String(value || "").trim();
     if (!text) return;
+
     chatMessages.push({ role: "user", text: text });
+    const assistant = { role: "assistant", text: "" };
     renderChat();
 
     const log = $("#chat-log");
     const typing = document.createElement("div");
     typing.className = "chat-message assistant";
     typing.innerHTML =
-      '<span class="chat-avatar">P</span><div class="bubble typing-dots"><span></span><span></span><span></span></div>';
+      '<span class="chat-avatar">BL</span><div class="bubble typing-dots"><span></span><span></span><span></span></div>';
     log.appendChild(typing);
     log.scrollTop = log.scrollHeight;
 
     const generation = chatGeneration;
-    window.setTimeout(function () {
+    let started = false;
+
+    function applyDelta(delta) {
       if (generation !== chatGeneration) return;
-      chatMessages.push({ role: "assistant", text: policyAnswer(text) });
+      if (!started) {
+        typing.remove();
+        started = true;
+        assistant.text = delta;
+        chatMessages.push(assistant);
+      } else {
+        assistant.text += delta;
+      }
       renderChat();
-    }, 700);
+    }
+
+    try {
+      const response = await fetch("/api/v1/bylaws/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ message: text }),
+      });
+      if (!response.ok || !response.body) {
+        throw new Error("Chat request failed");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const event = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          event.split("\n").forEach(function (line) {
+            if (!line.startsWith("data: ")) return;
+            const data = line.slice(6).trim();
+            if (!data || data === "[DONE]") return;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.delta) applyDelta(parsed.delta);
+            } catch (error) {
+              return;
+            }
+          });
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
+
+      if (!started && generation === chatGeneration) {
+        applyDelta(
+          "I could not reach the by-law assistant. Please try again or contact your township management office.",
+        );
+      }
+    } catch (error) {
+      if (generation === chatGeneration) {
+        applyDelta(
+          "The by-law assistant is unavailable right now. Please try again or contact your township management office.",
+        );
+      }
+    } finally {
+      typing.remove();
+    }
   }
 
   function setCarpoolRole(role) {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="SD-Wallet: policy checker, carpooling, community marketplace and restaurant monitoring in one Sime Darby app."
+      content="SD-Wallet: township by-laws alignment, carpooling, community marketplace and restaurant monitoring in one Sime Darby app."
     />
     <title>SD-Wallet — Sime Darby All-in-One</title>
     <link rel="icon" href="/static/favicon.ico" />
@@ -30,12 +30,12 @@
             </svg>
             <span>Wallet</span>
           </button>
-          <button class="nav-item" type="button" data-nav="policy">
+          <button class="nav-item" type="button" data-nav="bylaws">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 5.5h16v10H9l-5 3.5v-13.5Z" />
               <path d="M8 9h8M8 12h5" />
             </svg>
-            <span>Policy Checker</span>
+            <span>By-Laws Alignment</span>
           </button>
           <button class="nav-item" type="button" data-nav="carpool">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -218,25 +218,25 @@
             </div>
           </section>
 
-          <section class="view" data-view-panel="policy" id="view-policy" hidden>
+          <section class="view" data-view-panel="bylaws" id="view-bylaws" hidden>
             <div class="view-heading">
               <div>
-                <p class="eyebrow">Policy checker</p>
-                <h2>Ask, and get the policy answer</h2>
+                <p class="eyebrow">Township by-laws</p>
+                <h2>Check alignment with township by-laws</h2>
                 <p>
-                  A simple assistant for Sime Darby travel, claims, safety and
-                  people policies. Demo responses only.
+                  Ask about property use, renovations, parking, pets and common
+                  areas. Answers come from a mock by-law set — demo only.
                 </p>
               </div>
             </div>
 
-            <div class="policy-layout">
+            <div class="bylaws-layout">
               <article class="panel chat-panel">
                 <div class="chat-head">
-                  <span class="assistant-avatar">P</span>
+                  <span class="assistant-avatar">BL</span>
                   <div>
-                    <h3>Policy Assistant</h3>
-                    <p><span class="status-dot"></span> Ready to help · demo knowledge base</p>
+                    <h3>By-Laws Assistant</h3>
+                    <p><span class="status-dot"></span> Ready to help · mock by-law knowledge base</p>
                   </div>
                   <button class="btn btn-ghost btn-small" type="button" id="reset-chat">
                     Reset
@@ -244,26 +244,26 @@
                 </div>
                 <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
                 <div class="chat-suggestions" id="chat-suggestions">
-                  <button type="button" data-prompt="What is the travel claim limit?">
-                    Travel claim limit
+                  <button type="button" data-prompt="Can I run a short-term rental?">
+                    Short-term rental
                   </button>
-                  <button type="button" data-prompt="Can I claim mileage for carpooling?">
-                    Carpool mileage
+                  <button type="button" data-prompt="Do I need approval to renovate?">
+                    Renovation approval
                   </button>
-                  <button type="button" data-prompt="How do I report a safety incident?">
-                    Safety incident
+                  <button type="button" data-prompt="Can I park a lorry overnight?">
+                    Parking rules
                   </button>
-                  <button type="button" data-prompt="What is the meal allowance?">
-                    Meal allowance
+                  <button type="button" data-prompt="What are the quiet hours?">
+                    Quiet hours
                   </button>
                 </div>
                 <form class="chat-form" id="chat-form">
-                  <label class="sr-only" for="chat-input">Ask about a policy</label>
+                  <label class="sr-only" for="chat-input">Ask about a by-law</label>
                   <input
                     id="chat-input"
                     name="message"
                     type="text"
-                    placeholder="Ask about travel, claims, safety, leave…"
+                    placeholder="Ask about parking, pets, renovations, waste…"
                     autocomplete="off"
                   />
                   <button class="btn btn-primary" type="submit">Send</button>
@@ -274,18 +274,18 @@
                 <article class="panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Policy topics</h3>
+                      <h3>By-law topics</h3>
                       <p>Tap a topic to ask instantly</p>
                     </div>
                   </div>
                   <ul class="topic-list">
-                    <li><button type="button" data-prompt="What is the travel claim limit?"><span class="topic-icon">TR</span>Travel &amp; accommodation</button></li>
-                    <li><button type="button" data-prompt="What is the meal allowance?"><span class="topic-icon">FN</span>Meals &amp; entertainment</button></li>
-                    <li><button type="button" data-prompt="How does medical coverage work?"><span class="topic-icon">MD</span>Health &amp; medical</button></li>
-                    <li><button type="button" data-prompt="Can I claim mileage for carpooling?"><span class="topic-icon">VM</span>Vehicle &amp; mileage</button></li>
-                    <li><button type="button" data-prompt="What are the procurement thresholds?"><span class="topic-icon">PR</span>Procurement</button></li>
-                    <li><button type="button" data-prompt="How do I report a safety incident?"><span class="topic-icon">SH</span>Safety &amp; conduct</button></li>
-                    <li><button type="button" data-prompt="How do I apply for annual leave?"><span class="topic-icon">LV</span>Leave &amp; benefits</button></li>
+                    <li><button type="button" data-prompt="Can I run a home business or short-term rental?"><span class="topic-icon">PU</span>Property use</button></li>
+                    <li><button type="button" data-prompt="Do I need approval to renovate?"><span class="topic-icon">RN</span>Renovation &amp; extensions</button></li>
+                    <li><button type="button" data-prompt="Can I park a lorry overnight?"><span class="topic-icon">PK</span>Parking</button></li>
+                    <li><button type="button" data-prompt="What are the rules for pets and dogs?"><span class="topic-icon">PT</span>Pets</button></li>
+                    <li><button type="button" data-prompt="What are the quiet hours and waste rules?"><span class="topic-icon">WN</span>Waste &amp; noise</button></li>
+                    <li><button type="button" data-prompt="What are the rules for common areas and facilities?"><span class="topic-icon">CA</span>Common areas</button></li>
+                    <li><button type="button" data-prompt="What fines and appeals apply for breaches?"><span class="topic-icon">FN</span>Fines &amp; enforcement</button></li>
                   </ul>
                 </article>
 
@@ -293,13 +293,13 @@
                   <div class="panel-head">
                     <div>
                       <h3>How it works</h3>
-                      <p>Grounded in the demo policy set</p>
+                      <p>Grounded in the mock by-law set</p>
                     </div>
                   </div>
                   <ul class="check-list">
-                    <li>Ask in plain language, no policy codes needed.</li>
+                    <li>Ask in plain language, no by-law codes needed.</li>
                     <li>Replies highlight limits, approvals and deadlines.</li>
-                    <li>For formal advice, confirm with Group HR or Finance.</li>
+                    <li>For formal advice, confirm with your township management office.</li>
                   </ul>
                 </article>
               </aside>

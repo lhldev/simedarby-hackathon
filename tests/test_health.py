@@ -8,7 +8,7 @@ def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "SD-Wallet" in response.text
-    assert "Policy Checker" in response.text
+    assert "By-Laws Alignment" in response.text
     assert "Restaurant Monitor" in response.text
 
 

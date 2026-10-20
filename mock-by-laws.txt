@@ -1,0 +1,50 @@
+MOCK TOWNSHIP BY-LAWS — DEMO ONLY
+This is a stripped-down mock, NOT the real Sime Darby by-laws. It loosely
+mimics themes from Sime Darby Property townships for hackathon testing.
+Verify every rule with the actual township management before relying on it.
+
+1. Property use
+- Lots are residential unless gazetted for commercial use.
+- Home businesses need written management approval and must not cause signage,
+  parking, noise or delivery nuisance.
+- Short-term rentals (e.g. Airbnb) need approval and neighbour notice; max 6 guests.
+
+2. Renovation & extensions
+- Submit plans before work. No structural, facade or boundary changes without consent.
+- Work hours: Mon–Sat 08:00–18:00. No work on Sundays or public holidays.
+- A contractor deposit and debris removal may apply.
+
+3. Parking
+- Park only in allotted bays. No parking on grass, roads or common areas.
+- Commercial vehicles over 3 tonnes and trailers may not park overnight.
+- Obstructive or repeat offences may be clamped or fined.
+
+4. Pets
+- Dogs must be leashed and under control in common areas; clean up immediately.
+- No livestock or exotic animals. Maximum 2 dogs per household unless approved.
+- Persistent barking or noise is a nuisance offence.
+
+5. Waste & noise
+- Bag refuse and place it in bins on collection day; no dumping in common areas.
+- Quiet hours: 22:00–07:00. Avoid loud music, machinery or renovation then.
+
+6. Common areas & facilities
+- Do not obstruct walkways, corridors, drains or fire access.
+- Use facilities per posted rules; bookings are first-come, first-served.
+- Damage to common property is charged to the responsible household.
+
+7. Signage & advertising
+- No banners, posters or for-sale signs beyond the approved size and placement.
+- Do not nail signs to trees, walls or common property.
+
+8. Trees & landscaping
+- Do not cut or remove trees or alter landscaping without approval.
+- Maintain your lot's grass, drains and boundary hedges.
+
+9. Fees & enforcement
+- Management may issue reminders, fines or restrict facility access for breaches.
+- Mock fines: RM100 parking/waste, RM250 unapproved renovation work, RM500
+  repeat or nuisance offences. Appeals within 14 days.
+- By-laws may change; the latest notice on the community board applies.
+
+Contact your township management office for formal advice.
