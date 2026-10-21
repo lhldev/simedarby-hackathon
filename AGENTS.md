@@ -26,5 +26,5 @@ make dev      # uvicorn --reload
 - Config lives in `app/core/config.py` (pydantic-settings). Copy `.env.example` to `.env` and set `DATABASE_URL` for local work.
 - Rust changes: edit `rust_ext/src/lib.rs`, then `uv sync` (or `make setup`) to recompile. The compiled module is `starter_rust`.
 - Pydantic schemas live in `app/schemas/`; DB models in `app/db/models.py`; data access in `app/db/repository.py`.
-- UI uses the **Sime Darby color theme** (navy `#003866` + orange `#FF6B12`). Reuse the `--sime-*` CSS custom properties in `app/web/templates/index.html`; don't introduce off-brand colors.
+- UI uses the **Sime Darby color theme** (navy `#003866` + orange `#FF6B12`). Reuse the `--sime-*` CSS custom properties defined in `app/web/static/styles.css`; don't introduce off-brand colors.
 - Keep the dependency set minimal; add deps in `pyproject.toml`, never a `requirements.txt`.

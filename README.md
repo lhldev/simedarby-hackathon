@@ -117,7 +117,7 @@ created explicitly with `make db`, never during app startup.
 ## Theme
 
 The UI stays on the official Sime Darby palette. Tokens are defined in
-`app/web/static/styles.css` and `app/web/templates/index.html`:
+`app/web/static/styles.css` and consumed by `app/web/templates/index.html`:
 
 | Token | Hex | Role |
 | --- | --- | --- |
