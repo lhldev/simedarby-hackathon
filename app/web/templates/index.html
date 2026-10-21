@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="SD-Wallet: township by-laws alignment, carpooling, community marketplace and restaurant monitoring in one Sime Darby app."
+      content="SD-Wallet: township by-laws alignment, carpooling, community marketplace, EV charging and home energy in one Sime Darby app."
     />
     <title>SD-Wallet — Sime Darby All-in-One</title>
     <link rel="icon" href="/static/favicon.ico" />
@@ -53,12 +53,11 @@
             </svg>
             <span>Marketplace</span>
           </button>
-          <button class="nav-item" type="button" data-nav="restaurant">
+          <button class="nav-item" type="button" data-nav="energy">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10h16M5 10l1 10h12l1-10M3.5 10l1.2-4h14.6l1.2 4" />
-              <path d="M9 6V3M15 6V3" />
+              <path d="M13 2 5 13h6l-1 9 8-11h-6l1-9Z" />
             </svg>
-            <span>Restaurant Monitor</span>
+            <span>EV &amp; Energy</span>
           </button>
         </nav>
 
@@ -96,7 +95,7 @@
                 <p class="eyebrow">Good morning, Aisyah</p>
                 <h2>Everything you need, in one wallet</h2>
                 <p>
-                  Pay, claim, carpool, shop and dine across the Sime Darby
+                  Pay, claim, carpool, shop and charge across the Sime Darby
                   network without leaving the app.
                 </p>
               </div>
@@ -189,9 +188,14 @@
                   <small>Single reward balance</small>
                 </div>
                 <div class="impact-tile">
+                  <span>EV energy</span>
+                  <strong data-impact-ev>0 kWh</strong>
+                  <small>Charged in the township</small>
+                </div>
+                <div class="impact-tile">
                   <span>CO₂e saved</span>
                   <strong data-impact-carbon>0.0 kg</strong>
-                  <small>Rides + marketplace reuse</small>
+                  <small>Rides, reuse + EV charging</small>
                 </div>
               </div>
               <div
@@ -249,10 +253,10 @@
                       Community market
                       <small>Buy and sell locally</small>
                     </button>
-                    <button class="quick-action" type="button" data-nav="restaurant">
-                      <span class="qa-icon">RS</span>
-                      Dining live
-                      <small>Check table availability</small>
+                    <button class="quick-action" type="button" data-nav="energy">
+                      <span class="qa-icon">EV</span>
+                      Charge &amp; save
+                      <small>Chargers and home energy</small>
                     </button>
                   </div>
                 </article>
@@ -267,7 +271,7 @@
                   </div>
                   <p class="muted">
                     <span data-points>720</span> points collected. Redeem at
-                    partner restaurants and the community marketplace.
+                    partner merchants and the community marketplace.
                   </p>
                   <div class="progress" aria-hidden="true" id="sd-points-progress"><span style="width: 72%"></span></div>
                   <small class="muted" id="sd-points-next">720 / 1,000 points to the next reward</small>
@@ -568,57 +572,105 @@
             </div>
           </section>
 
-          <section class="view" data-view-panel="restaurant" id="view-restaurant" hidden>
+          <section class="view" data-view-panel="energy" id="view-energy" hidden>
             <div class="view-heading">
               <div>
-                <p class="eyebrow">Restaurant monitor</p>
-                <h2>Live dining availability</h2>
+                <p class="eyebrow">EV &amp; home energy</p>
+                <h2>Charge your car in one tap</h2>
                 <p>
-                  Upload restaurant photos, track table availability in real
-                  time and let owners push updates through the automation API.
+                  We pick an available charger, show the cost up front and pay
+                  from SD-Wallet. No charger lists, no guesswork.
                 </p>
-              </div>
-              <div class="heading-actions">
-                <span class="live-chip"><span class="pulse-dot"></span> Auto-refresh 15s</span>
-                <button class="btn btn-ghost" type="button" id="refresh-venues">Refresh</button>
               </div>
             </div>
 
-            <div class="restaurant-layout">
-              <div class="venue-grid" id="venue-grid"></div>
+            <div class="energy-simple-layout">
+              <article class="panel ev-card">
+                <div class="ev-card-head">
+                  <div>
+                    <p class="eyebrow">Your vehicle</p>
+                    <h3>Aisyah's Atto 3</h3>
+                    <p class="muted small" data-ev-charger>Finding an available charger…</p>
+                  </div>
+                  <span class="badge" id="ev-charger-status">Checking</span>
+                </div>
 
-              <aside class="stack">
+                <div class="ev-battery">
+                  <div class="ev-battery-copy">
+                    <span>Battery</span>
+                    <strong data-ev-battery>42%</strong>
+                  </div>
+                  <div class="ev-battery-track">
+                    <span data-ev-battery-bar style="width: 42%"></span>
+                  </div>
+                  <div class="ev-battery-foot">
+                    <span data-ev-range>190 km range</span>
+                    <span data-ev-capacity>60 kWh pack</span>
+                  </div>
+                </div>
+
+                <div class="ev-target">
+                  <span>Charge to</span>
+                  <div class="segmented" id="charge-target" role="group" aria-label="Charge target">
+                    <button type="button" data-charge-target="60">60%</button>
+                    <button type="button" data-charge-target="80" class="is-active">80%</button>
+                    <button type="button" data-charge-target="100">100%</button>
+                  </div>
+                </div>
+
+                <div class="ev-estimate" id="ev-estimate"></div>
+
+                <button class="btn btn-primary btn-block" type="button" id="start-charging">
+                  Finding a charger…
+                </button>
+                <p class="muted small ev-note">
+                  Charging is paid from SD-Wallet. You earn 40 SD Points and
+                  symbolic CO₂e savings when the session ends.
+                </p>
+              </article>
+
+              <div class="stack">
                 <article class="panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Live activity</h3>
-                      <p>Availability updates as they happen</p>
+                      <h3>Charging session</h3>
+                      <p>Start, watch, then stop to settle</p>
                     </div>
+                    <span class="badge" id="charge-count">0</span>
                   </div>
-                  <ul class="activity-list" id="venue-activity"></ul>
+                  <div id="charge-sessions"></div>
                 </article>
 
                 <article class="panel">
                   <div class="panel-head">
                     <div>
-                      <h3>Owner automation API</h3>
-                      <p>Push availability from any POS or kitchen system</p>
+                      <h3>Home energy</h3>
+                      <p>Today at Ara Damansara</p>
+                    </div>
+                    <span class="badge">Today</span>
+                  </div>
+                  <div class="energy-simple-stats">
+                    <div>
+                      <span>Used today</span>
+                      <strong data-energy-used>0 kWh</strong>
+                    </div>
+                    <div>
+                      <span>Solar generated</span>
+                      <strong data-energy-solar>0 kWh</strong>
                     </div>
                   </div>
-                  <p class="muted small">
-                    One PATCH call updates tables, wait time and status. The
-                    dashboard refreshes automatically.
-                  </p>
-                  <div class="api-row">
-                    <code>PATCH /api/v1/restaurants/&lt;id&gt;/availability</code>
-                    <button type="button" id="copy-api">Copy</button>
+                  <div class="energy-bill-row">
+                    <div>
+                      <strong>Bill due</strong>
+                      <span data-energy-bill>RM 0.00</span>
+                    </div>
+                    <button class="btn btn-primary btn-small" type="button" id="pay-energy-bill">
+                      Pay bill
+                    </button>
                   </div>
-                  <pre class="code-block" id="api-snippet"></pre>
-                  <button class="btn btn-ghost btn-block" type="button" id="open-api-modal">
-                    View API contract
-                  </button>
+                  <p class="muted small" data-energy-due>Next statement</p>
                 </article>
-              </aside>
+              </div>
             </div>
           </section>
         </main>

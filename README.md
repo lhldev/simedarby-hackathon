@@ -13,13 +13,15 @@ Sime Darby-branded app:
    and seats update live on the board.
 4. **Community Marketplace** — search and filter internal listings, add items
    to a basket and check out with SD-Wallet.
-5. **Restaurant Monitor** — live table availability, photo uploads, owner
-   status controls and an automation API for POS/kitchen systems.
+5. **EV &amp; Home Energy** — one-tap charging that auto-picks an available
+   charger and pays from SD-Wallet, plus home-energy tracking. Charger data is
+   exposed through a small integration API for Sime Darby operator systems.
 
 There is **no login flow**. The app runs entirely as a demo identity (Aisyah
-Rahman) and keeps wallet, carpool and marketplace data in `localStorage`, so
-state survives a page reload in the same browser. The Wallet view includes a
-one-click **Reset demo** action that restores the original seed state.
+Rahman) and keeps wallet, carpool, marketplace, home-energy and charging data
+in `localStorage`, so state survives a page reload in the same browser. The
+Wallet view includes a one-click **Reset demo** action that restores the
+original seed state.
 
 The original FastAPI + Neon Postgres + Rust visitor-log backend is still
 present as the stack proof; the root page is now the SD-Wallet experience.
@@ -27,17 +29,19 @@ present as the stack proof; the root page is now the SD-Wallet experience.
 ## Why it wins
 
 - **One app, five township journeys.** Wallet, by-laws guidance, carpooling,
-  marketplace and dining live in a single Sime Darby-branded shell with no
-  login friction for judges.
-- **A visible sustainability loop.** Shared rides and reused marketplace items
-  feed one SD Points balance and a unified community-impact panel, so the
-  benefit is obvious instead of hidden across separate screens.
+  marketplace and clean energy live in a single Sime Darby-branded shell with
+  no login friction for judges.
+- **A visible sustainability loop.** Shared rides, reused marketplace items and
+  EV charging feed one SD Points balance and a unified community-impact panel,
+  so the benefit is obvious instead of hidden across separate screens.
 - **AI with guardrails.** By-law answers are grounded in `mock-by-laws.txt` and
   clearly labelled as mock or hypothetical when the source is silent.
-- **A real operations story.** Restaurant availability is backed by a live API
-  that a POS or kitchen system can update with one PATCH call.
-- **A repeatable live demo.** The **Reset demo** action restores seed state, and
-  the dashboard falls back to cached venue data if the API is unavailable.
+- **A real operations story.** Charger availability is backed by a live
+  integration API that a Sime Darby operator system can update with one PATCH
+  call, while the demo UI simply picks a ready bay.
+- **A repeatable live demo.** The **Reset demo** action restores seed state and
+  releases active charging bays, and the dashboard falls back to cached charger
+  data if the API is unavailable.
 - **Stack proof, not just UI.** FastAPI, Neon Postgres, a PyO3/Maturin Rust
   extension and a Vercel deployment pipeline are all wired in.
 
@@ -57,13 +61,13 @@ make dev               # http://localhost:8000
 ```
 app/web/templates/index.html   App shell, navigation and all five views
 app/web/static/styles.css      Sime Darby design system and responsive layout
-app/web/static/app.js          State, rendering, chat, cart, carpool, impact dashboard and live venues
-app/api/routes/restaurants.py  Lightweight in-memory availability API
+app/web/static/app.js          State, rendering, chat, cart, carpool, impact dashboard, energy and chargers
+app/api/routes/energy.py       Lightweight in-memory charger availability API
 ```
 
 Everything is vanilla HTML/CSS/JS — no build step, no front-end dependencies.
-Navigation uses `#wallet`, `#bylaws`, `#carpool`, `#marketplace` and
-`#restaurant` deep links.
+Navigation uses `#wallet`, `#bylaws`, `#carpool`, `#marketplace` and `#energy`
+deep links.
 
 ### Shared UI language
 
@@ -76,7 +80,10 @@ Wallet interactions are also woven into the other modules: checking out a
 marketplace basket updates the same balance, transaction history and community
 impact panel. Carpooling is cash-free and instead awards SD reward points — the
 same single points balance shown in the SD rewards panel — which appear as
-transactions and on the SD Points badge in the Carpool view.
+transactions and on the SD Points badge in the Carpool view. EV charging is
+paid from the same wallet, and finished sessions add SD Points plus symbolic
+CO₂e savings to the shared impact panel. Home energy bills can also be paid
+from SD-Wallet.
 
 ### Demo behaviour
 
@@ -86,16 +93,15 @@ transactions and on the SD Points badge in the Carpool view.
 | By-Laws Alignment | GrafilyLab-assisted streaming answers grounded in `mock-by-laws.txt`, plus suggested prompts. |
 | Carpool | Role toggle, route form, ride board, seat reservation and SD reward points. |
 | Marketplace | Search, category filters, listing creation, basket quantities and checkout. |
-| Restaurants | API-backed availability, 15-second polling, photo previews, status toggles and activity feed. |
+| EV &amp; Energy | One-tap charging with an auto-selected bay, paid sessions, home-energy meter and bill payment, SD Points and CO₂e. |
 
-Restaurant photos are previewed with `FileReader` and kept in memory only; they
-are not uploaded to storage. Wallet, carpool and marketplace data can be reset
-with the **Reset demo** action in the Wallet view, or by clearing site data for
-the app.
+Charging sessions, home-energy values and wallet data can be reset with the
+**Reset demo** action in the Wallet view, or by clearing site data for the app.
+Active charging bays are released back through the integration API before the reset.
 
 The Wallet's **Your community impact** panel combines rides shared, marketplace
-items reused, SD Points and symbolic CO₂e saved, so judges can see the
-sustainability story without visiting each module.
+items reused, EV energy charged, SD Points and symbolic CO₂e saved, so judges
+can see the sustainability story without visiting each module.
 
 ## 2-minute demo script
 
@@ -110,10 +116,12 @@ sustainability story without visiting each module.
    that carpooling is cash-free.
 4. **Marketplace (25s).** Add an item, adjust quantity and pay with SD-Wallet.
    The wallet balance, transaction feed and impact panel update together.
-5. **Restaurant Monitor (20s).** Change a venue to busy, or run the displayed
-   curl command. The dashboard refreshes within 15 seconds via the owner API.
-6. **Reset (10s).** Return to the Wallet view and click **Reset demo** to restore
-   seed state for the next judge.
+5. **EV &amp; Energy (20s).** Open `#energy` — a ready charger is already
+   selected. Choose 60/80/100%, start charging and pay from SD-Wallet. Point out
+   how the wallet balance, transaction feed, session and home energy update
+   together. Stop to release the bay and earn SD Points plus CO₂e.
+6. **Reset (10s).** Return to the Wallet view and click **Reset demo** to release
+   active bays and restore seed state for the next judge.
 
 ## Impact model (symbolic)
 
@@ -124,30 +132,32 @@ All impact numbers are demo estimates, not audited measurements:
 | Accepted carpool passenger | Driver earns 150 SD Points |
 | Each shared ride seat | +4.2 kg CO₂e saved |
 | Marketplace purchase | Category-based reuse saving: Electronics 9.5, Fashion 4.8, Home 12.6, Kids 3.2, Services 1.4 kg |
+| EV charging session | 0.42 kg CO₂e saved per kWh, plus 40 SD Points when the session ends |
 | Eco milestone | Every 50 kg CO₂e |
 
 The UI converts totals to approximate km driven avoided (0.192 kg CO₂e/km) and
 tree-years (21 kg CO₂e/tree-year) for presentation only.
 
-## Restaurant automation API
+## EV charging integration API
 
-Restaurant availability is the one intentionally lightweight server feature.
+Charger availability is the one intentionally lightweight server feature.
 State is in memory, which is enough for a single-instance demo but resets when
-the process restarts.
+the process restarts. The EV view deliberately hides this API: it auto-picks a
+ready charger, leaving operator integration to Sime Darby.
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
-| `GET` | `/api/v1/restaurants` | List venues with live availability |
-| `PATCH` | `/api/v1/restaurants/{venue_id}/availability` | Update status, free tables and wait time |
+| `GET` | `/api/v1/energy/chargers` | List chargers with live bay availability |
+| `PATCH` | `/api/v1/energy/chargers/{charger_id}/availability` | Update status and free bays |
 
 ```bash
-curl -X PATCH "http://localhost:8000/api/v1/restaurants/the-grill-house/availability" \
+curl -X PATCH "http://localhost:8000/api/v1/energy/chargers/klcc-express/availability" \
   -H "Content-Type: application/json" \
-  -d '{"status":"busy","tables_available":6,"wait_minutes":20}'
+  -d '{"status":"available","bays_available":3}'
 ```
 
-`status` is one of `open`, `busy` or `closed`. `tables_available` must not
-exceed the venue capacity. There is no authentication on this demo endpoint.
+`status` is one of `available`, `busy` or `offline`. `bays_available` must not
+exceed the charger capacity. There is no authentication on this demo endpoint.
 
 ## Existing backend API
 
@@ -166,7 +176,7 @@ created explicitly with `make db`, never during app startup.
 ```text
 Browser (vanilla HTML/CSS/JS, localStorage demo state)
   |-- /api/v1/bylaws/chat   SSE -> GrafilyLab, grounded in mock-by-laws.txt
-  |-- /api/v1/restaurants   in-memory availability API for the live dashboard
+  |-- /api/v1/energy       in-memory charger availability API for the live dashboard
   |-- /api/v1/visits       Rust-signed visit log -> Neon Postgres
 FastAPI (app/main.py) on Vercel
 ```

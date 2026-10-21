@@ -9,7 +9,7 @@ def test_index(client):
     assert response.status_code == 200
     assert "SD-Wallet" in response.text
     assert "By-Laws Alignment" in response.text
-    assert "Restaurant Monitor" in response.text
+    assert "EV &amp; Energy" in response.text
     assert "Your community impact" in response.text
     assert "Reset demo" in response.text
 

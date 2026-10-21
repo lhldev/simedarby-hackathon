@@ -5,13 +5,34 @@ agents do not repeatedly ask for the same changes. Before proposing product
 work, read this file. Do **not** re-propose a rejected item unless the user
 explicitly asks for it.
 
+## 2026-10-21 — EV & Energy replaces Restaurant Monitor
+
+### Accepted and implemented
+
+- **Replace Restaurant Monitor.** The user judged table monitoring a weak fit
+  for a township super-app. The fifth view is now **EV & Energy**: live charger
+  bays from an in-memory FastAPI endpoint, paid charging sessions from
+  SD-Wallet, home-energy meter/bill payment, SD Points and symbolic CO₂e.
+- **Integration over a standalone monitor.** Charging sessions and home-energy
+  values live in demo `localStorage`, feed the wallet transaction feed and the
+  unified **Your community impact** panel, and are cleared by **Reset demo**
+  (which also releases active bays through the operator API).
+- **Operator API kept, UI simplified.** `GET /api/v1/energy/chargers` and
+  `PATCH /api/v1/energy/chargers/{id}/availability` remain as the backend
+  integration surface for Sime Darby. The UI does not list chargers or expose
+  API controls; it auto-picks a ready bay for a one-tap charge flow.
+
+This supersedes the Restaurant Monitor and the "restaurant availability is not
+reset" note below.
+
 ## 2026-10-21 — Hackathon polish pass
 
 ### Accepted and implemented
 
 - **One-click demo reset.** Added a **Reset demo** action on the Wallet view
   that clears demo `localStorage` and reloads the seed state at `#wallet`.
-  Restaurant availability is API-backed and is not reset.
+  Restaurant availability was API-backed and was not reset (superseded by the
+  EV & Energy entry above).
 - **Unified community impact dashboard.** Replaced the Wallet's carbon-only
   panel with a single **Your community impact** panel showing rides shared,
   marketplace items reused, SD Points and CO₂e saved, plus the existing carbon
