@@ -443,6 +443,28 @@
     modalForm.onsubmit = null;
   }
 
+  function resetDemo() {
+    openModal({
+      eyebrow: "Demo controls",
+      title: "Reset the demo?",
+      subtitle:
+        "This clears wallet, carpool, marketplace and chat state on this device and restores the original seed data.",
+      submitLabel: "Reset demo",
+      body:
+        '<p class="muted small">Restaurant availability comes from the live API and is not reset. The page will reload at the Wallet view.</p>',
+      onSubmit: function () {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (error) {
+          showToast("Could not reset demo data in this browser.", "error");
+          return;
+        }
+        window.location.hash = "#wallet";
+        window.location.reload();
+      },
+    });
+  }
+
   function activateView(view) {
     const target = VIEW_META[view] ? view : "wallet";
     activeView = target;
@@ -526,7 +548,40 @@
 
     renderSdPoints();
     renderCarbon();
+    renderImpact();
     renderTransactions();
+  }
+
+  function impactStats() {
+    const ridesShared = state.rides.filter(function (ride) {
+      return ride.joinedByMe || ride.offeredByMe;
+    }).length;
+    const itemsReused = state.transactions
+      .filter(function (transaction) {
+        return transaction.kind === "market";
+      })
+      .reduce(function (sum, transaction) {
+        const match = /^(\d+)/.exec(String(transaction.meta || ""));
+        return sum + (match ? Number(match[1]) : 1);
+      }, 0);
+    return {
+      ridesShared: ridesShared,
+      itemsReused: itemsReused,
+      points: Number(state.sdPoints) || 0,
+      carbon: Number(state.carbonSaved) || 0,
+    };
+  }
+
+  function renderImpact() {
+    const stats = impactStats();
+    const rides = $("[data-impact-rides]");
+    if (rides) rides.textContent = stats.ridesShared.toLocaleString("en-MY");
+    const items = $("[data-impact-items]");
+    if (items) items.textContent = stats.itemsReused.toLocaleString("en-MY");
+    const points = $("[data-impact-points]");
+    if (points) points.textContent = stats.points.toLocaleString("en-MY");
+    const carbon = $("[data-impact-carbon]");
+    if (carbon) carbon.textContent = formatKg(stats.carbon);
   }
 
   function renderTransactions() {
@@ -1037,6 +1092,7 @@
     saveState();
     renderRides();
     renderCarbon();
+    renderImpact();
     showToast(
       "Seat reserved — " +
         ride.name +
@@ -1981,6 +2037,11 @@
 
   $("#open-sell").addEventListener("click", openSellModal);
   $("#checkout").addEventListener("click", checkout);
+
+  const resetDemoButton = $("#reset-demo");
+  if (resetDemoButton) {
+    resetDemoButton.addEventListener("click", resetDemo);
+  }
 
   const searchInput = $("#market-search");
   if (searchInput) {

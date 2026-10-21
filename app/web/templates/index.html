@@ -100,7 +100,14 @@
                   network without leaving the app.
                 </p>
               </div>
-              <button class="btn btn-ghost" type="button" data-money="topup">Add money</button>
+              <div class="heading-actions">
+                <button class="btn btn-ghost" type="button" id="reset-demo">
+                  Reset demo
+                </button>
+                <button class="btn btn-ghost" type="button" data-money="topup">
+                  Add money
+                </button>
+              </div>
             </div>
 
             <div class="wallet-hero">
@@ -153,16 +160,38 @@
               </article>
             </div>
 
-            <article class="panel eco-panel">
+            <article class="panel eco-panel" aria-labelledby="impact-title">
               <div class="eco-head">
-                <span class="eco-mark" aria-hidden="true">CO₂</span>
+                <span class="eco-mark" aria-hidden="true">SD</span>
                 <div class="eco-copy">
-                  <h3>Carbon emissions saved</h3>
-                  <p>Symbolic CO₂e avoided through shared rides and marketplace reuse</p>
+                  <h3 id="impact-title">Your community impact</h3>
+                  <p>
+                    Rides shared, items reused, rewards earned and carbon saved
+                    in one view
+                  </p>
                 </div>
-                <div class="eco-total">
-                  <strong data-carbon>0.0 kg</strong>
-                  <small>CO₂e saved</small>
+                <span class="badge">Symbolic estimate</span>
+              </div>
+              <div class="impact-grid">
+                <div class="impact-tile">
+                  <span>Rides shared</span>
+                  <strong data-impact-rides>0</strong>
+                  <small>Reservations + accepted requests</small>
+                </div>
+                <div class="impact-tile">
+                  <span>Items reused</span>
+                  <strong data-impact-items>0</strong>
+                  <small>Community marketplace</small>
+                </div>
+                <div class="impact-tile">
+                  <span>SD Points</span>
+                  <strong data-impact-points>0</strong>
+                  <small>Single reward balance</small>
+                </div>
+                <div class="impact-tile">
+                  <span>CO₂e saved</span>
+                  <strong data-impact-carbon>0.0 kg</strong>
+                  <small>Rides + marketplace reuse</small>
                 </div>
               </div>
               <div
