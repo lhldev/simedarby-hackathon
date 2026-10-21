@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = "sd-wallet-demo-v2";
   const API_BASE = "/api/v1/restaurants";
+  const MAX_STORED_TRANSACTIONS = 100;
 
   const $ = (selector, root) => (root || document).querySelector(selector);
   const $$ = (selector, root) =>
@@ -117,6 +118,7 @@
     ride: "CP",
     market: "MK",
     reward: "RW",
+    reimburse: "EX",
   };
 
   const STATUS_LABELS = { open: "Open", busy: "Busy", closed: "Closed" };
@@ -131,7 +133,7 @@
           meta: "Ara Damansara to KLCC · Farah I.",
           amount: 300,
           direction: "in",
-          kind: "ride",
+          kind: "reward",
           at: daysAgo(0, 8, 12),
         },
         {
@@ -167,7 +169,7 @@
           meta: "Travel claim · October",
           amount: 146.4,
           direction: "in",
-          kind: "reward",
+          kind: "reimburse",
           at: daysAgo(3, 16, 20),
         },
         {
@@ -322,6 +324,20 @@
     };
   }
 
+  function migrateTransactions(transactions) {
+    return transactions.map(function (transaction) {
+      if (!transaction || typeof transaction !== "object") return transaction;
+      const title = String(transaction.title || "");
+      if (transaction.kind === "ride" && title === "SD reward points earned") {
+        return { ...transaction, kind: "reward" };
+      }
+      if (transaction.kind === "reward" && title === "Expense reimbursement") {
+        return { ...transaction, kind: "reimburse" };
+      }
+      return transaction;
+    });
+  }
+
   function loadState() {
     const defaults = buildDefaultState();
     try {
@@ -331,17 +347,22 @@
       return {
         ...defaults,
         ...saved,
-        transactions: Array.isArray(saved.transactions) ? saved.transactions : defaults.transactions,
+        transactions: Array.isArray(saved.transactions)
+          ? migrateTransactions(saved.transactions)
+          : defaults.transactions,
+        balance: Number.isFinite(Number(saved.balance))
+          ? Number(saved.balance)
+          : defaults.balance,
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
         sdPoints: Number.isFinite(Number(saved.sdPoints))
-          ? Number(saved.sdPoints)
+          ? Math.max(0, Number(saved.sdPoints))
           : Number.isFinite(Number(saved.primePoints))
-            ? Number(saved.primePoints)
+            ? Math.max(0, Number(saved.primePoints))
             : defaults.sdPoints,
         carbonSaved: Number.isFinite(Number(saved.carbonSaved))
-          ? Number(saved.carbonSaved)
+          ? Math.max(0, Number(saved.carbonSaved))
           : defaults.carbonSaved,
       };
     } catch (error) {
@@ -370,6 +391,9 @@
   };
 
   function saveState() {
+    if (state.transactions.length > MAX_STORED_TRANSACTIONS) {
+      state.transactions.length = MAX_STORED_TRANSACTIONS;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
@@ -461,6 +485,18 @@
     );
   }
 
+  function isThisWeek(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return date >= start && date < end;
+  }
+
   function renderWallet() {
     $$("[data-balance]").forEach(function (element) {
       element.textContent = money(state.balance);
@@ -504,7 +540,11 @@
       .slice(0, 8)
       .map(function (transaction) {
         const isIn = transaction.direction === "in";
+        const isPoints = transaction.kind === "reward";
         const sign = isIn ? "+" : "-";
+        const amount = isPoints
+          ? Math.abs(Number(transaction.amount || 0)).toLocaleString("en-MY") + " pts"
+          : money(transaction.amount);
         return (
           '<li class="tx-row">' +
           '<span class="tx-icon ' +
@@ -526,7 +566,7 @@
           (isIn ? "in" : "") +
           '">' +
           sign +
-          escapeHtml(money(transaction.amount)) +
+          escapeHtml(amount) +
           "</span>" +
           "</li>"
         );
@@ -585,6 +625,10 @@
           return;
         }
         const recipient = String(formData.get("recipient") || "").trim();
+        if (mode === "transfer" && !recipient) {
+          showToast("Enter a recipient.", "error");
+          return;
+        }
         const note = String(formData.get("note") || "").trim();
         const title =
           mode === "topup"
@@ -607,9 +651,12 @@
         renderWallet();
         closeModal();
         showToast(
-          mode === "topup"
-            ? money(amount) + " added to SD-Wallet."
-            : money(amount) + " paid from SD-Wallet.",
+          money(amount) +
+            (mode === "topup"
+              ? " added to SD-Wallet."
+              : mode === "transfer"
+                ? " sent from SD-Wallet."
+                : " paid from SD-Wallet."),
         );
       },
     });
@@ -656,6 +703,8 @@
     const text = String(value || "").trim();
     if (!text) return;
 
+    chatGeneration += 1;
+    const generation = chatGeneration;
     chatMessages.push({ role: "user", text: text });
     const assistant = { role: "assistant", text: "" };
     renderChat();
@@ -668,7 +717,6 @@
     log.appendChild(typing);
     log.scrollTop = log.scrollHeight;
 
-    const generation = chatGeneration;
     let started = false;
 
     function applyDelta(delta) {
@@ -774,19 +822,27 @@
         if (ride.isMine) {
           action = '<button class="btn btn-ghost btn-small" type="button" disabled>Your post</button>';
         } else if (isDriver) {
+          const joined = Boolean(ride.joinedByMe);
+          const full = ride.seats < 1;
           action =
             '<button class="btn btn-primary btn-small" type="button" data-join-ride="' +
             escapeHtml(ride.id) +
             '"' +
-            (ride.seats < 1 ? " disabled" : "") +
+            (joined || full ? " disabled" : "") +
             ">" +
-            (ride.seats < 1 ? "Full" : "Join ride · Free") +
+            (joined ? "Reserved" : full ? "Full" : "Join ride · Free") +
             "</button>";
         } else {
+          const offered = Boolean(ride.offeredByMe);
+          const filled = ride.seats < 1;
           action =
             '<button class="btn btn-navy btn-small" type="button" data-offer-seat="' +
             escapeHtml(ride.id) +
-            '">Offer a seat</button>';
+            '"' +
+            (offered || filled ? " disabled" : "") +
+            ">" +
+            (offered ? "Seat offered" : filled ? "Filled" : "Offer a seat") +
+            "</button>";
         }
 
         return (
@@ -873,11 +929,11 @@
   }
 
   function renderCarbon() {
-    const total = Number(state.carbonSaved) || 0;
+    const total = Math.max(0, Number(state.carbonSaved) || 0);
     const nextGoal =
       Math.floor(total / ECO_MILESTONE_KG) * ECO_MILESTONE_KG +
       ECO_MILESTONE_KG;
-    const percent = Math.min(100, (total / nextGoal) * 100);
+    const percent = Math.max(0, Math.min(100, (total / nextGoal) * 100));
     const kmAvoided = Math.round(total / 0.192);
     const trees = Math.round(total / 21);
 
@@ -931,13 +987,18 @@
     if (progress) {
       progress.style.width = (intoTier / SD_POINTS_TIER_TARGET) * 100 + "%";
     }
+    const remaining = SD_POINTS_TIER_TARGET - intoTier;
+    $$("[data-points-next]").forEach(function (element) {
+      element.textContent =
+        remaining.toLocaleString("en-MY") + " points to the next tier";
+    });
 
     const week = state.transactions
       .filter(function (transaction) {
         return (
           transaction.kind === "reward" &&
           transaction.direction === "in" &&
-          isThisMonth(transaction.at)
+          isThisWeek(transaction.at)
         );
       })
       .reduce(function (sum, transaction) {
@@ -966,9 +1027,12 @@
     const ride = state.rides.find(function (candidate) {
       return candidate.id === id;
     });
-    if (!ride || ride.role !== "driver" || ride.seats < 1) return;
+    if (!ride || ride.role !== "driver" || ride.seats < 1 || ride.joinedByMe) {
+      return;
+    }
 
     ride.seats -= 1;
+    ride.joinedByMe = true;
     awardCarbon(CARBON_PER_SHARED_RIDE);
     saveState();
     renderRides();
@@ -1039,6 +1103,12 @@
 
     grid.innerHTML = items
       .map(function (listing) {
+        const ownListing = listing.seller === "You";
+        const addButton = ownListing
+          ? '<button class="btn btn-ghost btn-small" type="button" disabled>Your listing</button>'
+          : '<button class="btn btn-primary btn-small" type="button" data-cart-add="' +
+            escapeHtml(listing.id) +
+            '">Add</button>';
         return (
           '<article class="product-card">' +
           '<div class="product-thumb tone-' +
@@ -1060,9 +1130,9 @@
           "</p>" +
           '<div class="product-foot"><strong>' +
           escapeHtml(money(listing.price)) +
-          '</strong><button class="btn btn-primary btn-small" type="button" data-cart-add="' +
-          escapeHtml(listing.id) +
-          '">Add</button></div>' +
+          "</strong>" +
+          addButton +
+          "</div>" +
           '<span class="seller">Sold by ' +
           escapeHtml(listing.seller) +
           "</span>" +
@@ -1080,7 +1150,7 @@
           return candidate.id === id;
         });
         const quantity = Number(state.cart[id]) || 0;
-        if (!listing || quantity < 1) return null;
+        if (!listing || listing.seller === "You" || quantity < 1) return null;
         return { listing: listing, quantity: quantity };
       })
       .filter(Boolean);
@@ -1215,30 +1285,30 @@
           showToast("Enter a valid price.", "error");
           return;
         }
+        const name = String(formData.get("name") || "").trim();
+        const description = String(formData.get("description") || "").trim();
+        if (!name || !description) {
+          showToast("Enter an item name and description.", "error");
+          return;
+        }
         const listing = {
           id: uid(),
-          name: String(formData.get("name") || "").trim(),
+          name: name,
           price: price,
           category: String(formData.get("category") || "Home"),
           condition: String(formData.get("condition") || "Used"),
           seller: "You",
-          description: String(formData.get("description") || "").trim(),
+          description: description,
         };
         state.listings.unshift(listing);
-        awardCarbon(carbonForListing(listing));
         marketCategory = "All";
         marketQuery = "";
         const search = $("#market-search");
         if (search) search.value = "";
         saveState();
         renderMarketplace();
-        renderCarbon();
         closeModal();
-        showToast(
-          "Your listing is live. +" +
-            formatKg(carbonForListing(listing)) +
-            " CO₂e saved by reusing an item.",
-        );
+        showToast("Your listing is live in the community market.");
       },
     });
   }
@@ -1299,13 +1369,17 @@
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("Request failed");
-      venues = await response.json();
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Invalid response");
+      venues = data;
       renderVenues();
+      return true;
     } catch (error) {
       if (!venues.length) {
         venues = fallbackVenues();
         renderVenues();
       }
+      return false;
     }
   }
 
@@ -1324,12 +1398,17 @@
     grid.innerHTML = venues
       .map(function (venue) {
         const photos = venuePhotos[venue.id] || [];
-        const freePercent = venue.capacity
-          ? Math.round((venue.tables_available / venue.capacity) * 100)
-          : 0;
-        const occupied = Math.max(0, venue.capacity - venue.tables_available);
+        const capacity = Math.max(0, Number(venue.capacity) || 0);
+        const tables = Math.max(0, Number(venue.tables_available) || 0);
+        const wait = Math.max(0, Number(venue.wait_minutes) || 0);
+        const freePercent = capacity ? Math.round((tables / capacity) * 100) : 0;
+        const occupied = Math.max(0, capacity - tables);
         const visual = photos.length
-          ? '<img src="' + photos[0] + '" alt="Photo of ' + escapeHtml(venue.name) + '" />'
+          ? '<img src="' +
+            escapeHtml(photos[0]) +
+            '" alt="Photo of ' +
+            escapeHtml(venue.name) +
+            '" />'
           : '<span class="venue-initials">' + escapeHtml(initialsOf(venue.name)) + "</span>";
         const photoRow = photos.length
           ? '<div class="photo-row">' +
@@ -1337,7 +1416,7 @@
               .map(function (photo, index) {
                 return (
                   '<span class="photo-thumb"><img src="' +
-                  photo +
+                  escapeHtml(photo) +
                   '" alt="Restaurant photo ' +
                   (index + 1) +
                   '" /><button type="button" data-remove-photo="' +
@@ -1373,13 +1452,13 @@
           "</p></div>" +
           '<div class="availability-row">' +
           "<div><strong>" +
-          venue.tables_available +
+          tables +
           "</strong><span>tables free</span></div>" +
           "<div><strong>" +
-          venue.wait_minutes +
+          wait +
           "</strong><span>min wait</span></div>" +
           "<div><strong>" +
-          venue.capacity +
+          capacity +
           "</strong><span>seats</span></div>" +
           "</div>" +
           '<div class="capacity-bar"><span style="width:' +
@@ -1541,10 +1620,13 @@
       return candidate.id === id;
     });
     if (!venue) return;
+    const capacity = Math.max(0, Number(venue.capacity) || 0);
+    const tables = Math.max(0, Number(venue.tables_available) || 0);
+    const wait = Math.max(0, Number(venue.wait_minutes) || 0);
     openModal({
       eyebrow: "Restaurant monitor",
       title: "Update availability",
-      subtitle: "Publish live numbers for " + venue.name + ". Capacity: " + venue.capacity + " seats.",
+      subtitle: "Publish live numbers for " + venue.name + ". Capacity: " + capacity + " seats.",
       submitLabel: "Publish update",
       body:
         '<label>Status<select name="status">' +
@@ -1564,12 +1646,12 @@
         "</select></label>" +
         '<div class="form-grid">' +
         '<label>Tables available<input name="tables_available" type="number" min="0" max="' +
-        venue.capacity +
+        capacity +
         '" value="' +
-        venue.tables_available +
+        tables +
         '" required /></label>' +
         '<label>Wait (minutes)<input name="wait_minutes" type="number" min="0" value="' +
-        venue.wait_minutes +
+        wait +
         '" required /></label>' +
         "</div>" +
         '<p class="muted small">This simulates the owner automation API and refreshes every connected dashboard.</p>',
@@ -1577,19 +1659,21 @@
         const status = String(formData.get("status") || "open");
         const tables = Number(formData.get("tables_available"));
         const wait = Number(formData.get("wait_minutes"));
-        if (!Number.isFinite(tables) || tables < 0 || tables > venue.capacity) {
-          showToast("Tables must be between 0 and " + venue.capacity + ".", "error");
+        if (!Number.isFinite(tables) || tables < 0 || tables > capacity) {
+          showToast("Tables must be between 0 and " + capacity + ".", "error");
           return;
         }
         if (!Number.isFinite(wait) || wait < 0) {
           showToast("Enter a valid wait time.", "error");
           return;
         }
-        pushActivity(venue.name + " updated to " + tables + " free tables.");
+        const nextTables = status === "closed" ? 0 : tables;
+        const nextWait = status === "closed" ? 0 : wait;
+        pushActivity(venue.name + " updated to " + nextTables + " free tables.");
         patchVenue(id, {
           status: status,
-          tables_available: tables,
-          wait_minutes: wait,
+          tables_available: nextTables,
+          wait_minutes: nextWait,
         });
         closeModal();
         showToast(venue.name + " availability published.");
@@ -1608,8 +1692,15 @@
     input.accept = "image/*";
     input.multiple = true;
     input.addEventListener("change", function () {
-      const files = Array.from(input.files || []).slice(0, 3);
-      if (!files.length) return;
+      const files = Array.from(input.files || [])
+        .filter(function (file) {
+          return file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024;
+        })
+        .slice(0, 3);
+      if (!files.length) {
+        showToast("Choose image files up to 5 MB each.", "error");
+        return;
+      }
       let pending = files.length;
       files.forEach(function (file) {
         const reader = new FileReader();
@@ -1718,13 +1809,21 @@
 
     const offerButton = event.target.closest("[data-offer-seat]");
     if (offerButton) {
+      const ride = state.rides.find(function (candidate) {
+        return candidate.id === offerButton.dataset.offerSeat;
+      });
+      if (!ride || ride.role === "driver" || ride.seats < 1 || ride.offeredByMe) {
+        return;
+      }
+      ride.seats -= 1;
+      ride.offeredByMe = true;
       awardSdPoints(
         SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
       );
       awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
-      renderSdPoints();
+      renderRides();
       renderWallet();
       showToast(
         "Interest sent — you earned " +
@@ -1841,6 +1940,10 @@
         return;
       }
       const date = String(data.get("date") || localDateInput());
+      if (date < localDateInput()) {
+        showToast("Choose today or a future date.", "error");
+        return;
+      }
       const time = String(data.get("time") || "08:00");
       const seats = Math.min(6, Math.max(1, Number(data.get("seats")) || 1));
       const vehicle = String(data.get("vehicle") || "").trim();
@@ -1861,17 +1964,12 @@
             : "Ride request",
         isMine: true,
       });
-      awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderRides();
-      renderCarbon();
       showToast(
-        (carpoolRole === "driver"
+        carpoolRole === "driver"
           ? "Ride published to the carpool board."
-          : "Ride request posted. Drivers can now offer a seat.") +
-          " +" +
-          formatKg(CARBON_PER_SHARED_RIDE) +
-          " CO₂e added to the eco bar.",
+          : "Ride request posted. Drivers can now offer a seat.",
       );
       carpoolForm.reset();
       $("#carpool-form [name='date']").value = localDateInput();
@@ -1892,9 +1990,14 @@
     });
   }
 
-  $("#refresh-venues").addEventListener("click", function () {
-    loadVenues();
-    showToast("Availability refreshed.");
+  $("#refresh-venues").addEventListener("click", async function () {
+    const live = await loadVenues();
+    showToast(
+      live
+        ? "Availability refreshed."
+        : "Live availability unavailable — showing cached data.",
+      live ? undefined : "error",
+    );
   });
 
   $("#copy-api").addEventListener("click", function () {
@@ -1929,19 +2032,23 @@
 
   const dateField = $("#carpool-form [name='date']");
   const timeField = $("#carpool-form [name='time']");
-  if (dateField && !dateField.value) dateField.value = localDateInput();
+  if (dateField) {
+    dateField.min = localDateInput();
+    if (!dateField.value) dateField.value = localDateInput();
+  }
   if (timeField && !timeField.value) timeField.value = "08:00";
 
   activateView(window.location.hash.replace("#", "") || "wallet");
 
   window.setInterval(function () {
-    if (activeView !== "restaurant") return;
+    if (document.hidden || activeView !== "restaurant") return;
     fetch(API_BASE, { headers: { Accept: "application/json" } })
       .then(function (response) {
         if (!response.ok) throw new Error("Refresh failed");
         return response.json();
       })
       .then(function (data) {
+        if (!Array.isArray(data)) return;
         venues = data;
         renderVenues();
       })

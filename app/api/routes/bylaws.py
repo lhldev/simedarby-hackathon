@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -13,8 +13,11 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 async def chat(payload: ChatRequest) -> StreamingResponse:
+    question = payload.message.strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="message must not be blank")
     return StreamingResponse(
-        stream_by_law_answer(payload.message.strip()),
+        stream_by_law_answer(question),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
