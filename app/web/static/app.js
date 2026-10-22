@@ -465,16 +465,51 @@
 
   const modal = $("#modal");
   const modalForm = $("#modal-form");
+  let modalBusy = false;
+
+  function setModalBusy(isBusy) {
+    const submit = $("#modal-submit");
+    modalBusy = isBusy;
+    modal.classList.toggle("is-busy", isBusy);
+    modal
+      .querySelectorAll("input, select, textarea, [data-close-modal]")
+      .forEach(function (element) {
+        element.disabled = isBusy;
+      });
+    if (isBusy) {
+      if (!submit.dataset.label) {
+        submit.dataset.label = submit.textContent;
+      }
+      submit.classList.add("is-loading");
+      submit.innerHTML =
+        '<span class="spinner" aria-hidden="true"></span><span>' +
+        escapeHtml(submit.dataset.label) +
+        "</span>";
+    } else {
+      submit.classList.remove("is-loading");
+      submit.textContent = submit.dataset.label || submit.textContent;
+      delete submit.dataset.label;
+    }
+  }
 
   function openModal(config) {
     $("#modal-eyebrow").textContent = config.eyebrow || "SD-Wallet";
     $("#modal-title").textContent = config.title || "";
     $("#modal-subtitle").textContent = config.subtitle || "";
     $("#modal-body").innerHTML = config.body || "";
-    $("#modal-submit").textContent = config.submitLabel || "Save";
-    modalForm.onsubmit = function (event) {
+    const submit = $("#modal-submit");
+    delete submit.dataset.label;
+    submit.textContent = config.submitLabel || "Save";
+    modalForm.onsubmit = async function (event) {
       event.preventDefault();
-      config.onSubmit(new FormData(modalForm));
+      if (modalBusy) return;
+      const formData = new FormData(modalForm);
+      setModalBusy(true);
+      try {
+        await config.onSubmit(formData);
+      } finally {
+        setModalBusy(false);
+      }
     };
     modal.hidden = false;
     document.body.classList.add("modal-open");
@@ -485,6 +520,7 @@
   }
 
   function closeModal() {
+    if (modalBusy) setModalBusy(false);
     modal.hidden = true;
     document.body.classList.remove("modal-open");
     modalForm.onsubmit = null;

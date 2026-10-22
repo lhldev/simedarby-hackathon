@@ -2428,6 +2428,38 @@ textarea {
   padding-top: 6px;
 }
 
+.modal.is-busy .modal-form-fields {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.btn.is-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn.is-loading:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 1100px) {
   .wallet-hero,
   .dashboard-grid,
