@@ -10,10 +10,12 @@ from app.services.computation import generate_visit_signature
 
 router = APIRouter(tags=["visits"])
 
+MAX_USER_AGENT_LENGTH = 256
+
 
 @router.post("/api/v1/visits", response_model=VisitRead, status_code=201)
 def log_visit(request: Request, db: Session = Depends(get_db)) -> VisitRead:
-    user_agent = request.headers.get("user-agent", "")
+    user_agent = request.headers.get("user-agent", "")[:MAX_USER_AGENT_LENGTH]
     timestamp = datetime.now(UTC)
     signature = generate_visit_signature(timestamp.isoformat(), user_agent)
     visit = repository.create_visit(

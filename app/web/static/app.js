@@ -2,7 +2,9 @@
   "use strict";
 
   const STORAGE_KEY = "sd-wallet-demo-v2";
-  const API_BASE = "/api/v1/restaurants";
+  const API_BASE = "/api/v1/energy/chargers";
+  const MAX_STORED_TRANSACTIONS = 100;
+  const MAX_STORED_SESSIONS = 20;
 
   const $ = (selector, root) => (root || document).querySelector(selector);
   const $$ = (selector, root) =>
@@ -117,9 +119,10 @@
     ride: "CP",
     market: "MK",
     reward: "RW",
+    reimburse: "EX",
+    charge: "EV",
+    utility: "UT",
   };
-
-  const STATUS_LABELS = { open: "Open", busy: "Busy", closed: "Closed" };
 
   function buildDefaultState() {
     return {
@@ -131,7 +134,7 @@
           meta: "Ara Damansara to KLCC · Farah I.",
           amount: 300,
           direction: "in",
-          kind: "ride",
+          kind: "reward",
           at: daysAgo(0, 8, 12),
         },
         {
@@ -167,7 +170,7 @@
           meta: "Travel claim · October",
           amount: 146.4,
           direction: "in",
-          kind: "reward",
+          kind: "reimburse",
           at: daysAgo(3, 16, 20),
         },
         {
@@ -326,7 +329,31 @@
         { name: "Aisyah Rahman", points: 450, rides: 3 },
         { name: "Raj Kumar", points: 300, rides: 2 },
       ],
+      homeEnergy: {
+        usedToday: 14.6,
+        solarToday: 7.2,
+        billDue: 22.4,
+      },
+      ev: {
+        battery: 42,
+        capacityKwh: 60,
+      },
+      chargingSessions: [],
     };
+  }
+
+  function migrateTransactions(transactions) {
+    return transactions.map(function (transaction) {
+      if (!transaction || typeof transaction !== "object") return transaction;
+      const title = String(transaction.title || "");
+      if (transaction.kind === "ride" && title === "SD reward points earned") {
+        return { ...transaction, kind: "reward" };
+      }
+      if (transaction.kind === "reward" && title === "Expense reimbursement") {
+        return { ...transaction, kind: "reimburse" };
+      }
+      return transaction;
+    });
   }
 
   function loadState() {
@@ -338,7 +365,12 @@
       return {
         ...defaults,
         ...saved,
-        transactions: Array.isArray(saved.transactions) ? saved.transactions : defaults.transactions,
+        transactions: Array.isArray(saved.transactions)
+          ? migrateTransactions(saved.transactions)
+          : defaults.transactions,
+        balance: Number.isFinite(Number(saved.balance))
+          ? Number(saved.balance)
+          : defaults.balance,
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
@@ -360,13 +392,24 @@
               })
           : defaults.carpoolContributors,
         sdPoints: Number.isFinite(Number(saved.sdPoints))
-          ? Number(saved.sdPoints)
+          ? Math.max(0, Number(saved.sdPoints))
           : Number.isFinite(Number(saved.primePoints))
-            ? Number(saved.primePoints)
+            ? Math.max(0, Number(saved.primePoints))
             : defaults.sdPoints,
         carbonSaved: Number.isFinite(Number(saved.carbonSaved))
-          ? Number(saved.carbonSaved)
+          ? Math.max(0, Number(saved.carbonSaved))
           : defaults.carbonSaved,
+        homeEnergy:
+          saved.homeEnergy && typeof saved.homeEnergy === "object"
+            ? { ...defaults.homeEnergy, ...saved.homeEnergy }
+            : defaults.homeEnergy,
+        ev:
+          saved.ev && typeof saved.ev === "object"
+            ? { ...defaults.ev, ...saved.ev }
+            : defaults.ev,
+        chargingSessions: Array.isArray(saved.chargingSessions)
+          ? saved.chargingSessions
+          : defaults.chargingSessions,
       };
     } catch (error) {
       return defaults;
@@ -380,20 +423,24 @@
   let marketCategory = "All";
   let chatGeneration = 0;
   let chatMessages = [];
-  let venues = [];
-  let activity = [];
-
-  const venuePhotos = {};
+  let chargers = [];
+  let chargeTarget = 80;
 
   const VIEW_META = {
     wallet: { eyebrow: "All-in-one", title: "SD-Wallet" },
     bylaws: { eyebrow: "Township", title: "By-Laws Alignment" },
     carpool: { eyebrow: "Community", title: "Carpool" },
     marketplace: { eyebrow: "Community", title: "Marketplace" },
-    restaurant: { eyebrow: "Live operations", title: "Restaurant Monitor" },
+    energy: { eyebrow: "Clean energy", title: "EV & Energy" },
   };
 
   function saveState() {
+    if (state.transactions.length > MAX_STORED_TRANSACTIONS) {
+      state.transactions.length = MAX_STORED_TRANSACTIONS;
+    }
+    if (state.chargingSessions.length > MAX_STORED_SESSIONS) {
+      state.chargingSessions.length = MAX_STORED_SESSIONS;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
@@ -443,6 +490,37 @@
     modalForm.onsubmit = null;
   }
 
+  function resetDemo() {
+    openModal({
+      eyebrow: "Demo controls",
+      title: "Reset the demo?",
+      subtitle:
+        "This clears wallet, carpool, marketplace, energy and chat state on this device and restores the original seed data.",
+      submitLabel: "Reset demo",
+      body:
+        '<p class="muted small">Active charging sessions are released first. The page will reload at the Wallet view.</p>',
+      onSubmit: async function () {
+        const activeSessions = state.chargingSessions.filter(function (session) {
+          return session.status === "active";
+        });
+        if (activeSessions.length) {
+          if (!chargers.length) await loadChargers();
+          for (const session of activeSessions) {
+            await releaseChargerSlot(session.chargerId);
+          }
+        }
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (error) {
+          showToast("Could not reset demo data in this browser.", "error");
+          return;
+        }
+        window.location.hash = "#wallet";
+        window.location.reload();
+      },
+    });
+  }
+
   function activateView(view) {
     const target = VIEW_META[view] ? view : "wallet";
     activeView = target;
@@ -466,8 +544,9 @@
     if (window.location.hash !== "#" + target) {
       history.replaceState(null, "", "#" + target);
     }
-    if (target === "restaurant" && !venues.length) {
-      loadVenues();
+    if (target === "energy") {
+      if (!chargers.length) loadChargers();
+      renderEnergy();
     }
     if (target === "marketplace") {
       renderMarketplace();
@@ -483,6 +562,18 @@
       date.getMonth() === now.getMonth() &&
       date.getFullYear() === now.getFullYear()
     );
+  }
+
+  function isThisWeek(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return date >= start && date < end;
   }
 
   function renderWallet() {
@@ -514,7 +605,49 @@
 
     renderSdPoints();
     renderCarbon();
+    renderImpact();
     renderTransactions();
+  }
+
+  function impactStats() {
+    const ridesShared = state.rides.filter(function (ride) {
+      return ride.joinedByMe || ride.offeredByMe;
+    }).length;
+    const itemsReused = state.transactions
+      .filter(function (transaction) {
+        return transaction.kind === "market";
+      })
+      .reduce(function (sum, transaction) {
+        const match = /^(\d+)/.exec(String(transaction.meta || ""));
+        return sum + (match ? Number(match[1]) : 1);
+      }, 0);
+    return {
+      ridesShared: ridesShared,
+      itemsReused: itemsReused,
+      points: Number(state.sdPoints) || 0,
+      carbon: Number(state.carbonSaved) || 0,
+      evKwh: state.chargingSessions
+        .filter(function (session) {
+          return session.status === "complete";
+        })
+        .reduce(function (sum, session) {
+          return sum + (Number(session.energy) || 0);
+        }, 0),
+    };
+  }
+
+  function renderImpact() {
+    const stats = impactStats();
+    const rides = $("[data-impact-rides]");
+    if (rides) rides.textContent = stats.ridesShared.toLocaleString("en-MY");
+    const items = $("[data-impact-items]");
+    if (items) items.textContent = stats.itemsReused.toLocaleString("en-MY");
+    const points = $("[data-impact-points]");
+    if (points) points.textContent = stats.points.toLocaleString("en-MY");
+    const carbon = $("[data-impact-carbon]");
+    if (carbon) carbon.textContent = formatKg(stats.carbon);
+    const ev = $("[data-impact-ev]");
+    if (ev) ev.textContent = stats.evKwh.toFixed(1) + " kWh";
   }
 
   function renderTransactions() {
@@ -528,7 +661,11 @@
       .slice(0, 8)
       .map(function (transaction) {
         const isIn = transaction.direction === "in";
+        const isPoints = transaction.kind === "reward";
         const sign = isIn ? "+" : "-";
+        const amount = isPoints
+          ? Math.abs(Number(transaction.amount || 0)).toLocaleString("en-MY") + " pts"
+          : money(transaction.amount);
         return (
           '<li class="tx-row">' +
           '<span class="tx-icon ' +
@@ -550,7 +687,7 @@
           (isIn ? "in" : "") +
           '">' +
           sign +
-          escapeHtml(money(transaction.amount)) +
+          escapeHtml(amount) +
           "</span>" +
           "</li>"
         );
@@ -609,6 +746,10 @@
           return;
         }
         const recipient = String(formData.get("recipient") || "").trim();
+        if (mode === "transfer" && !recipient) {
+          showToast("Enter a recipient.", "error");
+          return;
+        }
         const note = String(formData.get("note") || "").trim();
         const title =
           mode === "topup"
@@ -631,9 +772,12 @@
         renderWallet();
         closeModal();
         showToast(
-          mode === "topup"
-            ? money(amount) + " added to SD-Wallet."
-            : money(amount) + " paid from SD-Wallet.",
+          money(amount) +
+            (mode === "topup"
+              ? " added to SD-Wallet."
+              : mode === "transfer"
+                ? " sent from SD-Wallet."
+                : " paid from SD-Wallet."),
         );
       },
     });
@@ -680,6 +824,8 @@
     const text = String(value || "").trim();
     if (!text) return;
 
+    chatGeneration += 1;
+    const generation = chatGeneration;
     chatMessages.push({ role: "user", text: text });
     const assistant = { role: "assistant", text: "" };
     renderChat();
@@ -692,7 +838,6 @@
     log.appendChild(typing);
     log.scrollTop = log.scrollHeight;
 
-    const generation = chatGeneration;
     let started = false;
 
     function applyDelta(delta) {
@@ -798,19 +943,27 @@
         if (ride.isMine) {
           action = '<button class="btn btn-ghost btn-small" type="button" disabled>Your post</button>';
         } else if (isDriver) {
+          const joined = Boolean(ride.joinedByMe);
+          const full = ride.seats < 1;
           action =
             '<button class="btn btn-primary btn-small" type="button" data-join-ride="' +
             escapeHtml(ride.id) +
             '"' +
-            (ride.seats < 1 ? " disabled" : "") +
+            (joined || full ? " disabled" : "") +
             ">" +
-            (ride.seats < 1 ? "Full" : "Join ride · Free") +
+            (joined ? "Reserved" : full ? "Full" : "Join ride · Free") +
             "</button>";
         } else {
+          const offered = Boolean(ride.offeredByMe);
+          const filled = ride.seats < 1;
           action =
             '<button class="btn btn-navy btn-small" type="button" data-offer-seat="' +
             escapeHtml(ride.id) +
-            '">Offer a seat</button>';
+            '"' +
+            (offered || filled ? " disabled" : "") +
+            ">" +
+            (offered ? "Seat offered" : filled ? "Filled" : "Offer a seat") +
+            "</button>";
         }
 
         return (
@@ -908,8 +1061,10 @@
   }
 
   const SD_POINTS_PER_PASSENGER = 150;
+  const SD_POINTS_PER_CHARGE = 40;
   const SD_POINTS_TIER_TARGET = 1000;
   const CARBON_PER_SHARED_RIDE = 4.2;
+  const CARBON_PER_EV_KWH = 0.42;
   const CARBON_PER_ITEM = {
     Electronics: 9.5,
     Fashion: 4.8,
@@ -937,11 +1092,11 @@
   }
 
   function renderCarbon() {
-    const total = Number(state.carbonSaved) || 0;
+    const total = Math.max(0, Number(state.carbonSaved) || 0);
     const nextGoal =
       Math.floor(total / ECO_MILESTONE_KG) * ECO_MILESTONE_KG +
       ECO_MILESTONE_KG;
-    const percent = Math.min(100, (total / nextGoal) * 100);
+    const percent = Math.max(0, Math.min(100, (total / nextGoal) * 100));
     const kmAvoided = Math.round(total / 0.192);
     const trees = Math.round(total / 21);
 
@@ -995,13 +1150,18 @@
     if (progress) {
       progress.style.width = (intoTier / SD_POINTS_TIER_TARGET) * 100 + "%";
     }
+    const remaining = SD_POINTS_TIER_TARGET - intoTier;
+    $$("[data-points-next]").forEach(function (element) {
+      element.textContent =
+        remaining.toLocaleString("en-MY") + " points to the next tier";
+    });
 
     const week = state.transactions
       .filter(function (transaction) {
         return (
           transaction.kind === "reward" &&
           transaction.direction === "in" &&
-          isThisMonth(transaction.at)
+          isThisWeek(transaction.at)
         );
       })
       .reduce(function (sum, transaction) {
@@ -1042,15 +1202,19 @@
     const ride = state.rides.find(function (candidate) {
       return candidate.id === id;
     });
-    if (!ride || ride.role !== "driver" || ride.seats < 1) return;
+    if (!ride || ride.role !== "driver" || ride.seats < 1 || ride.joinedByMe) {
+      return;
+    }
 
     ride.seats -= 1;
     awardCarpoolPoints(ride.name, SD_POINTS_PER_PASSENGER);
+    ride.joinedByMe = true;
     awardCarbon(CARBON_PER_SHARED_RIDE);
     saveState();
     renderRides();
     renderCarpoolRanking();
     renderCarbon();
+    renderImpact();
     showToast(
       "Seat reserved — " +
         ride.name +
@@ -1117,6 +1281,12 @@
 
     grid.innerHTML = items
       .map(function (listing) {
+        const ownListing = listing.seller === "You";
+        const addButton = ownListing
+          ? '<button class="btn btn-ghost btn-small" type="button" disabled>Your listing</button>'
+          : '<button class="btn btn-primary btn-small" type="button" data-cart-add="' +
+            escapeHtml(listing.id) +
+            '">Add</button>';
         return (
           '<article class="product-card">' +
           '<div class="product-thumb tone-' +
@@ -1138,9 +1308,9 @@
           "</p>" +
           '<div class="product-foot"><strong>' +
           escapeHtml(money(listing.price)) +
-          '</strong><button class="btn btn-primary btn-small" type="button" data-cart-add="' +
-          escapeHtml(listing.id) +
-          '">Add</button></div>' +
+          "</strong>" +
+          addButton +
+          "</div>" +
           '<span class="seller">Sold by ' +
           escapeHtml(listing.seller) +
           "</span>" +
@@ -1158,7 +1328,7 @@
           return candidate.id === id;
         });
         const quantity = Number(state.cart[id]) || 0;
-        if (!listing || quantity < 1) return null;
+        if (!listing || listing.seller === "You" || quantity < 1) return null;
         return { listing: listing, quantity: quantity };
       })
       .filter(Boolean);
@@ -1293,265 +1463,256 @@
           showToast("Enter a valid price.", "error");
           return;
         }
+        const name = String(formData.get("name") || "").trim();
+        const description = String(formData.get("description") || "").trim();
+        if (!name || !description) {
+          showToast("Enter an item name and description.", "error");
+          return;
+        }
         const listing = {
           id: uid(),
-          name: String(formData.get("name") || "").trim(),
+          name: name,
           price: price,
           category: String(formData.get("category") || "Home"),
           condition: String(formData.get("condition") || "Used"),
           seller: "You",
-          description: String(formData.get("description") || "").trim(),
+          description: description,
         };
         state.listings.unshift(listing);
-        awardCarbon(carbonForListing(listing));
         marketCategory = "All";
         marketQuery = "";
         const search = $("#market-search");
         if (search) search.value = "";
         saveState();
         renderMarketplace();
-        renderCarbon();
         closeModal();
-        showToast(
-          "Your listing is live. +" +
-            formatKg(carbonForListing(listing)) +
-            " CO₂e saved by reusing an item.",
-        );
+        showToast("Your listing is live in the community market.");
       },
     });
   }
 
-  function fallbackVenues() {
+  function fallbackChargers() {
     const now = new Date().toISOString();
     return [
       {
-        id: "nasi-lemak-corner",
-        name: "Nasi Lemak Corner",
-        cuisine: "Malaysian",
-        location: "Menara Sime Darby, Level 2",
-        capacity: 48,
-        status: "open",
-        tables_available: 17,
-        wait_minutes: 5,
+        id: "oasis-hub-1",
+        name: "Oasis Hub · Bay 1",
+        location: "Sime Darby Oasis, B1",
+        connector: "CCS2",
+        power_kw: 120,
+        bays_total: 4,
+        bays_available: 2,
+        price_per_kwh: 0.85,
+        status: "available",
         updated_at: now,
       },
       {
-        id: "kopi-and-co",
-        name: "Kopi & Co.",
-        cuisine: "Cafe",
-        location: "Ara Damansara, Tower B",
-        capacity: 32,
+        id: "ara-green-1",
+        name: "Ara Green Charge",
+        location: "Ara Damansara, P1",
+        connector: "Type 2",
+        power_kw: 22,
+        bays_total: 2,
+        bays_available: 0,
+        price_per_kwh: 0.65,
         status: "busy",
-        tables_available: 4,
-        wait_minutes: 18,
         updated_at: now,
       },
       {
-        id: "the-grill-house",
-        name: "The Grill House",
-        cuisine: "Western",
-        location: "Sime Darby HQ, KLCC",
-        capacity: 60,
-        status: "open",
-        tables_available: 23,
-        wait_minutes: 8,
+        id: "klcc-express",
+        name: "KLCC Express",
+        location: "Sime Darby HQ, B2",
+        connector: "CCS2",
+        power_kw: 180,
+        bays_total: 6,
+        bays_available: 4,
+        price_per_kwh: 0.95,
+        status: "available",
         updated_at: now,
       },
       {
-        id: "bites-by-chef-nadia",
-        name: "Bites by Chef Nadia",
-        cuisine: "Fusion",
-        location: "Sime Darby Oasis, Ground Floor",
-        capacity: 40,
-        status: "closed",
-        tables_available: 0,
-        wait_minutes: 0,
+        id: "hq-guest",
+        name: "HQ Guest Charger",
+        location: "Menara Sime Darby, B1",
+        connector: "Type 2",
+        power_kw: 11,
+        bays_total: 1,
+        bays_available: 0,
+        price_per_kwh: 0.55,
+        status: "offline",
         updated_at: now,
       },
     ];
   }
 
-  async function loadVenues() {
+  async function loadChargers() {
     try {
       const response = await fetch(API_BASE, {
         headers: { Accept: "application/json" },
       });
       if (!response.ok) throw new Error("Request failed");
-      venues = await response.json();
-      renderVenues();
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Invalid response");
+      chargers = data;
+      renderEnergy();
+      return true;
     } catch (error) {
-      if (!venues.length) {
-        venues = fallbackVenues();
-        renderVenues();
+      if (!chargers.length) {
+        chargers = fallbackChargers();
+        renderEnergy();
+      }
+      return false;
+    }
+  }
+
+  function availableCharger() {
+    return chargers.find(function (charger) {
+      return charger.status === "available" && Number(charger.bays_available) > 0;
+    });
+  }
+
+  function activeSession() {
+    return state.chargingSessions.find(function (session) {
+      return session.status === "active";
+    });
+  }
+
+  function remainingMinutes(session) {
+    const endsAt = new Date(session.endsAt).getTime();
+    if (Number.isNaN(endsAt)) return 0;
+    return Math.max(0, Math.ceil((endsAt - Date.now()) / 60000));
+  }
+
+  function chargePlan(charger, target) {
+    const battery = Math.min(100, Math.max(0, Number(state.ev.battery) || 0));
+    const capacity = Math.max(1, Number(state.ev.capacityKwh) || 60);
+    const energy =
+      Math.round(Math.max(0, target - battery) * capacity) / 100;
+    const cost = Math.round(energy * (Number(charger.price_per_kwh) || 0) * 100) / 100;
+    const carbon = Math.round(energy * CARBON_PER_EV_KWH * 10) / 10;
+    const minutes =
+      energy > 0 && Number(charger.power_kw) > 0
+        ? Math.max(1, Math.round((energy / Number(charger.power_kw)) * 60))
+        : 0;
+    return {
+      battery: battery,
+      capacity: capacity,
+      energy: energy,
+      cost: cost,
+      carbon: carbon,
+      minutes: minutes,
+    };
+  }
+
+  function estimateMarkup(plan) {
+    if (plan.energy <= 0) {
+      return '<p class="muted small">Your battery is already at the selected target.</p>';
+    }
+    return (
+      '<div class="ev-estimate-row"><span>Energy needed</span><strong>' +
+      plan.energy.toFixed(1) +
+      " kWh</strong></div>" +
+      '<div class="ev-estimate-row"><span>Estimated time</span><strong>' +
+      plan.minutes +
+      " min</strong></div>" +
+      '<div class="ev-estimate-row"><span>Cost</span><strong>' +
+      escapeHtml(money(plan.cost)) +
+      "</strong></div>" +
+      '<div class="ev-estimate-row"><span>CO₂e saved</span><strong>' +
+      formatKg(plan.carbon) +
+      "</strong></div>"
+    );
+  }
+
+  function renderEnergy() {
+    const battery = Math.min(100, Math.max(0, Number(state.ev.battery) || 0));
+    const capacity = Math.max(1, Number(state.ev.capacityKwh) || 60);
+    const range = Math.round(battery * 4.45);
+    const running = activeSession();
+    const charger = availableCharger();
+
+    const batteryNode = $("[data-ev-battery]");
+    if (batteryNode) batteryNode.textContent = Math.round(battery) + "%";
+    const batteryBar = $("[data-ev-battery-bar]");
+    if (batteryBar) batteryBar.style.width = battery + "%";
+    const rangeNode = $("[data-ev-range]");
+    if (rangeNode) rangeNode.textContent = range + " km range";
+    const capacityNode = $("[data-ev-capacity]");
+    if (capacityNode) capacityNode.textContent = capacity + " kWh pack";
+
+    const chargerNode = $("[data-ev-charger]");
+    const statusNode = $("#ev-charger-status");
+    if (charger) {
+      if (chargerNode) {
+        chargerNode.textContent =
+          charger.name +
+          " · " +
+          charger.power_kw +
+          " kW · " +
+          money(charger.price_per_kwh) +
+          "/kWh";
+      }
+      if (statusNode) statusNode.textContent = "Ready";
+    } else {
+      if (chargerNode) {
+        chargerNode.textContent =
+          "No charger available right now. We'll keep checking.";
+      }
+      if (statusNode) statusNode.textContent = "Unavailable";
+    }
+
+    const estimate = $("#ev-estimate");
+    const button = $("#start-charging");
+    if (running) {
+      if (estimate) {
+        estimate.hidden = false;
+        estimate.innerHTML =
+          '<p class="muted small">Charging in progress. Stop the session to settle your SD Points.</p>';
+      }
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Charging in progress";
+      }
+    } else if (charger) {
+      const plan = chargePlan(charger, chargeTarget);
+      if (estimate) {
+        estimate.hidden = false;
+        estimate.innerHTML = estimateMarkup(plan);
+      }
+      if (button) {
+        if (plan.energy <= 0) {
+          button.disabled = true;
+          button.textContent = "Already at " + chargeTarget + "%";
+        } else {
+          button.disabled = false;
+          button.textContent = "Start charging · " + money(plan.cost);
+        }
+      }
+    } else {
+      if (estimate) {
+        estimate.hidden = true;
+        estimate.innerHTML = "";
+      }
+      if (button) {
+        button.disabled = true;
+        button.textContent = "No charger available";
       }
     }
+
+    $$("[data-charge-target]").forEach(function (targetButton) {
+      targetButton.classList.toggle(
+        "is-active",
+        Number(targetButton.dataset.chargeTarget) === chargeTarget,
+      );
+    });
+
+    renderChargingSessions();
+    renderHomeEnergy();
   }
 
-  function statusLabel(status) {
-    return STATUS_LABELS[status] || status;
-  }
-
-  function renderVenues() {
-    const grid = $("#venue-grid");
-    if (!grid) return;
-    if (!venues.length) {
-      grid.innerHTML = '<p class="empty-state">Loading restaurant availability…</p>';
-      return;
-    }
-
-    grid.innerHTML = venues
-      .map(function (venue) {
-        const photos = venuePhotos[venue.id] || [];
-        const freePercent = venue.capacity
-          ? Math.round((venue.tables_available / venue.capacity) * 100)
-          : 0;
-        const occupied = Math.max(0, venue.capacity - venue.tables_available);
-        const visual = photos.length
-          ? '<img src="' + photos[0] + '" alt="Photo of ' + escapeHtml(venue.name) + '" />'
-          : '<span class="venue-initials">' + escapeHtml(initialsOf(venue.name)) + "</span>";
-        const photoRow = photos.length
-          ? '<div class="photo-row">' +
-            photos
-              .map(function (photo, index) {
-                return (
-                  '<span class="photo-thumb"><img src="' +
-                  photo +
-                  '" alt="Restaurant photo ' +
-                  (index + 1) +
-                  '" /><button type="button" data-remove-photo="' +
-                  escapeHtml(venue.id) +
-                  '" data-photo-index="' +
-                  index +
-                  '" aria-label="Remove photo">×</button></span>'
-                );
-              })
-              .join("") +
-            "</div>"
-          : "";
-
-        return (
-          '<article class="venue-card">' +
-          '<div class="venue-visual tone-' +
-          toneFor(venue.id) +
-          '">' +
-          visual +
-          '<span class="status-badge ' +
-          escapeHtml(venue.status) +
-          '">' +
-          escapeHtml(statusLabel(venue.status)) +
-          "</span>" +
-          "</div>" +
-          '<div class="venue-body">' +
-          '<div class="venue-head"><h3>' +
-          escapeHtml(venue.name) +
-          "</h3><p>" +
-          escapeHtml(venue.cuisine) +
-          " · " +
-          escapeHtml(venue.location) +
-          "</p></div>" +
-          '<div class="availability-row">' +
-          "<div><strong>" +
-          venue.tables_available +
-          "</strong><span>tables free</span></div>" +
-          "<div><strong>" +
-          venue.wait_minutes +
-          "</strong><span>min wait</span></div>" +
-          "<div><strong>" +
-          venue.capacity +
-          "</strong><span>seats</span></div>" +
-          "</div>" +
-          '<div class="capacity-bar"><span style="width:' +
-          freePercent +
-          '%"></span></div>' +
-          '<p class="venue-updated">Updated ' +
-          escapeHtml(formatRelative(venue.updated_at)) +
-          " · " +
-          occupied +
-          " seats occupied</p>" +
-          photoRow +
-          '<div class="status-toggle" role="group" aria-label="Availability status">' +
-          ["open", "busy", "closed"]
-            .map(function (status) {
-              return (
-                '<button type="button" data-venue-status="' +
-                escapeHtml(venue.id) +
-                '" data-status="' +
-                status +
-                '" class="' +
-                (venue.status === status ? "is-active" : "") +
-                '">' +
-                statusLabel(status) +
-                "</button>"
-              );
-            })
-            .join("") +
-          "</div>" +
-          '<div class="venue-actions">' +
-          '<button class="btn btn-ghost btn-small" type="button" data-upload-photo="' +
-          escapeHtml(venue.id) +
-          '">Upload photos</button>' +
-          '<button class="btn btn-navy btn-small" type="button" data-edit-venue="' +
-          escapeHtml(venue.id) +
-          '">Update availability</button>' +
-          '<button class="btn btn-ghost btn-small" type="button" data-venue-api="' +
-          escapeHtml(venue.id) +
-          '">API</button>' +
-          "</div>" +
-          "</div>" +
-          "</article>"
-        );
-      })
-      .join("");
-
-    renderActivity();
-    updateApiSnippet();
-  }
-
-  function pushActivity(text) {
-    activity.unshift({ at: new Date().toISOString(), text: text });
-    activity = activity.slice(0, 12);
-    renderActivity();
-  }
-
-  function renderActivity() {
-    const list = $("#venue-activity");
-    if (!list) return;
-    if (!activity.length) {
-      list.innerHTML = '<li><p class="empty-state">No updates yet.</p></li>';
-      return;
-    }
-    list.innerHTML = activity
-      .slice(0, 6)
-      .map(function (entry) {
-        return (
-          '<li><span class="activity-dot"></span><div><p>' +
-          escapeHtml(entry.text) +
-          "</p><span>" +
-          escapeHtml(formatRelative(entry.at)) +
-          "</span></div></li>"
-        );
-      })
-      .join("");
-  }
-
-  function updateApiSnippet() {
-    const snippet = $("#api-snippet");
-    if (!snippet) return;
-    const id = venues.length ? venues[0].id : "<venue-id>";
-    snippet.textContent =
-      'curl -X PATCH "' +
-      window.location.origin +
-      API_BASE +
-      "/" +
-      id +
-      '/availability" \\\n' +
-      '  -H "Content-Type: application/json" \\\n' +
-      "  -d '{\"status\":\"busy\",\"tables_available\":4,\"wait_minutes\":20}'";
-  }
-
-  async function patchVenue(id, patch) {
-    const previous = venues.find(function (venue) {
-      return venue.id === id;
+  async function patchCharger(id, patch) {
+    const previous = chargers.find(function (charger) {
+      return charger.id === id;
     });
     try {
       const response = await fetch(API_BASE + "/" + id + "/availability", {
@@ -1561,206 +1722,283 @@
       });
       if (!response.ok) throw new Error("Update failed");
       const updated = await response.json();
-      venues = venues.map(function (venue) {
-        return venue.id === id ? updated : venue;
+      chargers = chargers.map(function (charger) {
+        return charger.id === id ? updated : charger;
       });
     } catch (error) {
       if (previous) {
-        venues = venues.map(function (venue) {
-          if (venue.id !== id) return venue;
+        chargers = chargers.map(function (charger) {
+          if (charger.id !== id) return charger;
           return {
-            ...venue,
+            ...charger,
             ...patch,
             updated_at: new Date().toISOString(),
           };
         });
       }
-      showToast("Live API unavailable — showing a local demo update.", "error");
     }
-    renderVenues();
+    renderEnergy();
   }
 
-  function setVenueStatus(id, status) {
-    const venue = venues.find(function (candidate) {
-      return candidate.id === id;
-    });
-    if (!venue || venue.status === status) return;
-
-    const patch = {
-      status: status,
-      tables_available: venue.tables_available,
-      wait_minutes: venue.wait_minutes,
-    };
-
-    if (status === "closed") {
-      patch.tables_available = 0;
-      patch.wait_minutes = 0;
-    } else if (status === "open") {
-      if (venue.status === "closed" || venue.tables_available < 1) {
-        patch.tables_available = Math.max(1, Math.round(venue.capacity * 0.3));
-        patch.wait_minutes = 5;
-      } else {
-        patch.wait_minutes = Math.min(venue.wait_minutes, 10);
-      }
-    } else if (status === "busy") {
-      patch.wait_minutes = Math.max(venue.wait_minutes, 15);
-      if (venue.tables_available < 1) {
-        patch.tables_available = Math.max(1, Math.round(venue.capacity * 0.1));
-      }
-    }
-
-    pushActivity(venue.name + " marked " + status + " by the owner.");
-    showToast(venue.name + " is now " + status + ".");
-    patchVenue(id, patch);
-  }
-
-  function openVenueModal(id) {
-    const venue = venues.find(function (candidate) {
-      return candidate.id === id;
-    });
-    if (!venue) return;
-    openModal({
-      eyebrow: "Restaurant monitor",
-      title: "Update availability",
-      subtitle: "Publish live numbers for " + venue.name + ". Capacity: " + venue.capacity + " seats.",
-      submitLabel: "Publish update",
-      body:
-        '<label>Status<select name="status">' +
-        ["open", "busy", "closed"]
-          .map(function (status) {
-            return (
-              '<option value="' +
-              status +
-              '"' +
-              (venue.status === status ? " selected" : "") +
-              ">" +
-              statusLabel(status) +
-              "</option>"
-            );
-          })
-          .join("") +
-        "</select></label>" +
-        '<div class="form-grid">' +
-        '<label>Tables available<input name="tables_available" type="number" min="0" max="' +
-        venue.capacity +
-        '" value="' +
-        venue.tables_available +
-        '" required /></label>' +
-        '<label>Wait (minutes)<input name="wait_minutes" type="number" min="0" value="' +
-        venue.wait_minutes +
-        '" required /></label>' +
-        "</div>" +
-        '<p class="muted small">This simulates the owner automation API and refreshes every connected dashboard.</p>',
-      onSubmit: function (formData) {
-        const status = String(formData.get("status") || "open");
-        const tables = Number(formData.get("tables_available"));
-        const wait = Number(formData.get("wait_minutes"));
-        if (!Number.isFinite(tables) || tables < 0 || tables > venue.capacity) {
-          showToast("Tables must be between 0 and " + venue.capacity + ".", "error");
-          return;
-        }
-        if (!Number.isFinite(wait) || wait < 0) {
-          showToast("Enter a valid wait time.", "error");
-          return;
-        }
-        pushActivity(venue.name + " updated to " + tables + " free tables.");
-        patchVenue(id, {
-          status: status,
-          tables_available: tables,
-          wait_minutes: wait,
-        });
-        closeModal();
-        showToast(venue.name + " availability published.");
-      },
-    });
-  }
-
-  function openPhotoPicker(id) {
-    const venue = venues.find(function (candidate) {
-      return candidate.id === id;
-    });
-    if (!venue) return;
-
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    input.multiple = true;
-    input.addEventListener("change", function () {
-      const files = Array.from(input.files || []).slice(0, 3);
-      if (!files.length) return;
-      let pending = files.length;
-      files.forEach(function (file) {
-        const reader = new FileReader();
-        reader.addEventListener("load", function () {
-          if (typeof reader.result === "string") {
-            venuePhotos[id] = (venuePhotos[id] || []).concat(reader.result).slice(0, 4);
-          }
-          pending -= 1;
-          if (pending === 0) {
-            renderVenues();
-            pushActivity("New photos uploaded for " + venue.name + ".");
-            showToast("Photos added to the restaurant listing.");
-          }
-        });
-        reader.readAsDataURL(file);
-      });
-    });
-    input.click();
-  }
-
-  function removePhoto(id, index) {
-    if (!venuePhotos[id]) return;
-    venuePhotos[id].splice(index, 1);
-    renderVenues();
-  }
-
-  async function copyText(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast("Copied to clipboard.");
+  function startCharging() {
+    if (activeSession()) {
+      showToast("A charging session is already running.", "error");
       return;
-    } catch (error) {
-      const area = document.createElement("textarea");
-      area.value = text;
-      area.setAttribute("readonly", "");
-      area.style.position = "fixed";
-      area.style.opacity = "0";
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-      showToast("Copied to clipboard.");
+    }
+    const charger = availableCharger();
+    if (!charger) {
+      showToast("No charger available right now. Try again shortly.", "error");
+      return;
+    }
+    const plan = chargePlan(charger, chargeTarget);
+    if (plan.energy <= 0) {
+      showToast(
+        "Your battery is already at " + chargeTarget + "%. Choose a higher target.",
+        "error",
+      );
+      return;
+    }
+    if (plan.cost > state.balance) {
+      showToast("Insufficient wallet balance for this session.", "error");
+      return;
+    }
+
+    const startedAt = new Date();
+    const endsAt = new Date(startedAt.getTime() + plan.minutes * 60000);
+    state.balance = Math.round((state.balance - plan.cost) * 100) / 100;
+    state.transactions.unshift({
+      id: uid(),
+      title: "EV charging · " + charger.name,
+      meta: plan.energy.toFixed(1) + " kWh · " + plan.minutes + " min",
+      amount: plan.cost,
+      direction: "out",
+      kind: "charge",
+      at: startedAt.toISOString(),
+    });
+    state.chargingSessions.unshift({
+      id: uid(),
+      chargerId: charger.id,
+      chargerName: charger.name,
+      energy: plan.energy,
+      cost: plan.cost,
+      minutes: plan.minutes,
+      carbon: plan.carbon,
+      target: chargeTarget,
+      status: "active",
+      startedAt: startedAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+    });
+
+    const nextBays = Math.max(0, Number(charger.bays_available) - 1);
+    patchCharger(charger.id, {
+      status: nextBays > 0 ? "available" : "busy",
+      bays_available: nextBays,
+    });
+
+    saveState();
+    renderWallet();
+    renderEnergy();
+    showToast(
+      money(plan.cost) +
+        " paid — charging to " +
+        chargeTarget +
+        "%. Stop any time to settle rewards.",
+    );
+  }
+
+  function settleSession(session, showNotice) {
+    if (!session || session.status !== "active") return;
+    session.status = "complete";
+    session.endedAt = new Date().toISOString();
+
+    const capacity = Math.max(1, Number(state.ev.capacityKwh) || 60);
+    const gainedPercent = (Number(session.energy) / capacity) * 100;
+    state.ev.battery = Math.min(
+      100,
+      Math.round((Number(state.ev.battery) + gainedPercent) * 10) / 10,
+    );
+
+    awardCarbon(Number(session.carbon) || 0);
+    awardSdPoints(
+      SD_POINTS_PER_CHARGE,
+      "EV charging · " + Number(session.energy).toFixed(1) + " kWh",
+    );
+
+    const charger = chargers.find(function (candidate) {
+      return candidate.id === session.chargerId;
+    });
+    if (charger) {
+      const bays = Math.min(
+        Math.max(0, Number(charger.bays_total) || 0),
+        (Number(charger.bays_available) || 0) + 1,
+      );
+      const status =
+        charger.status === "offline"
+          ? "offline"
+          : bays > 0
+            ? "available"
+            : "busy";
+      patchCharger(charger.id, { status: status, bays_available: bays });
+    }
+
+    saveState();
+    renderWallet();
+    renderEnergy();
+    if (showNotice && !document.hidden) {
+      showToast(
+        "Charging complete — +" +
+          formatKg(session.carbon) +
+          " CO₂e and +" +
+          SD_POINTS_PER_CHARGE +
+          " SD Points.",
+      );
     }
   }
 
-  function openApiModal(id) {
-    const venue = venues.find(function (candidate) {
-      return candidate.id === id;
+  async function settleDueSessions() {
+    const now = Date.now();
+    const due = state.chargingSessions.filter(function (session) {
+      if (session.status !== "active") return false;
+      const endsAt = new Date(session.endsAt).getTime();
+      return !Number.isNaN(endsAt) && endsAt <= now;
     });
-    if (!venue) return;
-    const endpoint = window.location.origin + API_BASE + "/" + venue.id + "/availability";
-    const snippet =
-      'curl -X PATCH "' +
-      endpoint +
-      '" \\\n' +
-      '  -H "Content-Type: application/json" \\\n' +
-      "  -d '{\"status\":\"busy\",\"tables_available\":4,\"wait_minutes\":20}'";
-    openModal({
-      eyebrow: "Owner automation",
-      title: "Availability API",
-      subtitle: venue.name + " · one authenticated-free demo endpoint",
-      submitLabel: "Copy curl",
-      body:
-        '<p class="muted small">Send a PATCH request from the POS or kitchen system. The dashboard polls every 15 seconds.</p>' +
-        '<pre class="code-block">' +
-        escapeHtml(snippet) +
-        "</pre>" +
-        '<p class="muted small">Validation: tables_available must be between 0 and the venue capacity. Response includes the updated timestamp.</p>',
-      onSubmit: function () {
-        copyText(snippet);
-        closeModal();
-      },
+    if (!due.length) return;
+    if (!chargers.length) await loadChargers();
+    due.forEach(function (session) {
+      settleSession(session, true);
     });
+  }
+
+  async function releaseChargerSlot(chargerId) {
+    const charger = chargers.find(function (candidate) {
+      return candidate.id === chargerId;
+    });
+    if (!charger) return;
+    const bays = Math.min(
+      Math.max(0, Number(charger.bays_total) || 0),
+      (Number(charger.bays_available) || 0) + 1,
+    );
+    const status =
+      charger.status === "offline"
+        ? "offline"
+        : bays > 0
+          ? "available"
+          : "busy";
+    await patchCharger(chargerId, { status: status, bays_available: bays });
+  }
+
+  function stopCharging(sessionId) {
+    const session = state.chargingSessions.find(function (candidate) {
+      return candidate.id === sessionId && candidate.status === "active";
+    });
+    if (!session) return;
+    settleSession(session, true);
+  }
+
+  function renderChargingSessions() {
+    const container = $("#charge-sessions");
+    if (!container) return;
+    const active = state.chargingSessions.filter(function (session) {
+      return session.status === "active";
+    });
+    const count = $("#charge-count");
+    if (count) count.textContent = String(active.length);
+
+    const recent = state.chargingSessions.slice(0, 4);
+    if (!recent.length) {
+      container.innerHTML =
+        '<p class="empty-state">No sessions yet. Start charging above.</p>';
+      return;
+    }
+
+    const capacity = Math.max(1, Number(state.ev.capacityKwh) || 60);
+    container.innerHTML = recent
+      .map(function (session) {
+        const isActive = session.status === "active";
+        const gained = Math.round(
+          (Number(session.energy) / capacity) * 1000,
+        ) / 10;
+        const detail = isActive
+          ? "Charging · " +
+            Number(session.energy).toFixed(1) +
+            " kWh · " +
+            remainingMinutes(session) +
+            " min left · " +
+            money(session.cost)
+          : Number(session.energy).toFixed(1) +
+            " kWh · +" +
+            gained +
+            "% · " +
+            formatKg(session.carbon) +
+            " saved";
+        return (
+          '<div class="session-row">' +
+          "<div><strong>" +
+          escapeHtml(session.chargerName) +
+          "</strong><span>" +
+          escapeHtml(detail) +
+          "</span></div>" +
+          (isActive
+            ? '<button class="btn btn-ghost btn-small" type="button" data-stop-charge="' +
+              escapeHtml(session.id) +
+              '">Stop &amp; settle</button>'
+            : '<span class="badge">Complete</span>') +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
+  function renderHomeEnergy() {
+    const home = state.homeEnergy || {};
+    const used = Math.max(0, Number(home.usedToday) || 0);
+    const solar = Math.max(0, Number(home.solarToday) || 0);
+    const bill = Math.max(0, Number(home.billDue) || 0);
+
+    const usedNode = $("[data-energy-used]");
+    if (usedNode) usedNode.textContent = used.toFixed(1) + " kWh";
+    const solarNode = $("[data-energy-solar]");
+    if (solarNode) solarNode.textContent = solar.toFixed(1) + " kWh";
+    const billNode = $("[data-energy-bill]");
+    if (billNode) billNode.textContent = money(bill);
+    const dueNode = $("[data-energy-due]");
+    if (dueNode) {
+      dueNode.textContent =
+        bill > 0 ? "Due on the next statement" : "Paid with SD-Wallet";
+    }
+
+    const payButton = $("#pay-energy-bill");
+    if (payButton) {
+      payButton.disabled = bill <= 0;
+      payButton.textContent = bill > 0 ? "Pay bill" : "Bill paid";
+    }
+  }
+
+  function payEnergyBill() {
+    const due = Math.max(0, Number(state.homeEnergy.billDue) || 0);
+    if (due <= 0) {
+      showToast("No energy bill is due right now.", "error");
+      return;
+    }
+    if (due > state.balance) {
+      showToast("Insufficient wallet balance to pay the energy bill.", "error");
+      return;
+    }
+    state.balance -= due;
+    state.transactions.unshift({
+      id: uid(),
+      title: "Home energy bill",
+      meta: "Ara Damansara residence · monthly statement",
+      amount: due,
+      direction: "out",
+      kind: "utility",
+      at: new Date().toISOString(),
+    });
+    state.homeEnergy.billDue = 0;
+    saveState();
+    renderWallet();
+    renderHomeEnergy();
+    showToast(money(due) + " energy bill paid with SD-Wallet.");
   }
 
   document.addEventListener("click", function (event) {
@@ -1796,6 +2034,14 @@
 
     const offerButton = event.target.closest("[data-offer-seat]");
     if (offerButton) {
+      const ride = state.rides.find(function (candidate) {
+        return candidate.id === offerButton.dataset.offerSeat;
+      });
+      if (!ride || ride.role === "driver" || ride.seats < 1 || ride.offeredByMe) {
+        return;
+      }
+      ride.seats -= 1;
+      ride.offeredByMe = true;
       awardSdPoints(
         SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
@@ -1803,6 +2049,7 @@
       awardCarpoolPoints("Aisyah Rahman", SD_POINTS_PER_PASSENGER);
       awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
+      renderRides();
       renderSdPoints();
       renderCarpoolRanking();
       renderWallet();
@@ -1856,33 +2103,21 @@
       return;
     }
 
-    const statusButton = event.target.closest("[data-venue-status]");
-    if (statusButton) {
-      setVenueStatus(statusButton.dataset.venueStatus, statusButton.dataset.status);
+    const targetButton = event.target.closest("[data-charge-target]");
+    if (targetButton) {
+      chargeTarget = Number(targetButton.dataset.chargeTarget);
+      renderEnergy();
       return;
     }
 
-    const uploadButton = event.target.closest("[data-upload-photo]");
-    if (uploadButton) {
-      openPhotoPicker(uploadButton.dataset.uploadPhoto);
+    if (event.target.closest("#start-charging")) {
+      startCharging();
       return;
     }
 
-    const removeButton = event.target.closest("[data-remove-photo]");
-    if (removeButton) {
-      removePhoto(removeButton.dataset.removePhoto, Number(removeButton.dataset.photoIndex));
-      return;
-    }
-
-    const editButton = event.target.closest("[data-edit-venue]");
-    if (editButton) {
-      openVenueModal(editButton.dataset.editVenue);
-      return;
-    }
-
-    const apiButton = event.target.closest("[data-venue-api]");
-    if (apiButton) {
-      openApiModal(apiButton.dataset.venueApi);
+    const stopButton = event.target.closest("[data-stop-charge]");
+    if (stopButton) {
+      stopCharging(stopButton.dataset.stopCharge);
       return;
     }
 
@@ -1921,6 +2156,10 @@
         return;
       }
       const date = String(data.get("date") || localDateInput());
+      if (date < localDateInput()) {
+        showToast("Choose today or a future date.", "error");
+        return;
+      }
       const time = String(data.get("time") || "08:00");
       const seats = Math.min(6, Math.max(1, Number(data.get("seats")) || 1));
       const vehicle = String(data.get("vehicle") || "").trim();
@@ -1941,17 +2180,12 @@
             : "Ride request",
         isMine: true,
       });
-      awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderRides();
-      renderCarbon();
       showToast(
-        (carpoolRole === "driver"
+        carpoolRole === "driver"
           ? "Ride published to the carpool board."
-          : "Ride request posted. Drivers can now offer a seat.") +
-          " +" +
-          formatKg(CARBON_PER_SHARED_RIDE) +
-          " CO₂e added to the eco bar.",
+          : "Ride request posted. Drivers can now offer a seat.",
       );
       carpoolForm.reset();
       $("#carpool-form [name='date']").value = localDateInput();
@@ -1964,6 +2198,11 @@
   $("#open-sell").addEventListener("click", openSellModal);
   $("#checkout").addEventListener("click", checkout);
 
+  const resetDemoButton = $("#reset-demo");
+  if (resetDemoButton) {
+    resetDemoButton.addEventListener("click", resetDemo);
+  }
+
   const searchInput = $("#market-search");
   if (searchInput) {
     searchInput.addEventListener("input", function (event) {
@@ -1972,31 +2211,11 @@
     });
   }
 
-  $("#refresh-venues").addEventListener("click", function () {
-    loadVenues();
-    showToast("Availability refreshed.");
-  });
-
-  $("#copy-api").addEventListener("click", function () {
-    copyText($("#api-snippet").textContent);
-  });
-
-  $("#open-api-modal").addEventListener("click", function () {
-    if (venues.length) {
-      openApiModal(venues[0].id);
-    }
-  });
+  $("#pay-energy-bill").addEventListener("click", payEnergyBill);
 
   window.addEventListener("hashchange", function () {
     activateView(window.location.hash.replace("#", ""));
   });
-
-  activity = [
-    {
-      at: new Date().toISOString(),
-      text: "Live availability feed connected to the restaurant API.",
-    },
-  ];
 
   resetChat();
   setCarpoolRole("passenger");
@@ -2005,26 +2224,30 @@
   renderCarpoolRanking();
   renderSdPoints();
   renderMarketplace();
-  renderActivity();
-  updateApiSnippet();
+  renderEnergy();
 
   const dateField = $("#carpool-form [name='date']");
   const timeField = $("#carpool-form [name='time']");
-  if (dateField && !dateField.value) dateField.value = localDateInput();
+  if (dateField) {
+    dateField.min = localDateInput();
+    if (!dateField.value) dateField.value = localDateInput();
+  }
   if (timeField && !timeField.value) timeField.value = "08:00";
 
   activateView(window.location.hash.replace("#", "") || "wallet");
 
   window.setInterval(function () {
-    if (activeView !== "restaurant") return;
+    settleDueSessions();
+    if (document.hidden || activeView !== "energy") return;
     fetch(API_BASE, { headers: { Accept: "application/json" } })
       .then(function (response) {
         if (!response.ok) throw new Error("Refresh failed");
         return response.json();
       })
       .then(function (data) {
-        venues = data;
-        renderVenues();
+        if (!Array.isArray(data)) return;
+        chargers = data;
+        renderEnergy();
       })
       .catch(function () {
         return null;
