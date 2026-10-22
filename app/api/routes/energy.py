@@ -23,6 +23,7 @@ class ChargerRead(BaseModel):
     bays_total: int
     bays_available: int
     price_per_kwh: float
+    price_cents_per_kwh: int
     status: ChargerStatus
     updated_at: datetime
 
@@ -39,6 +40,7 @@ def _seed_chargers() -> dict[str, ChargerRead]:
             bays_total=4,
             bays_available=2,
             price_per_kwh=0.85,
+            price_cents_per_kwh=85,
             status="available",
             updated_at=now - timedelta(minutes=2),
         ),
@@ -51,6 +53,7 @@ def _seed_chargers() -> dict[str, ChargerRead]:
             bays_total=2,
             bays_available=0,
             price_per_kwh=0.65,
+            price_cents_per_kwh=65,
             status="busy",
             updated_at=now - timedelta(minutes=4),
         ),
@@ -63,6 +66,7 @@ def _seed_chargers() -> dict[str, ChargerRead]:
             bays_total=6,
             bays_available=4,
             price_per_kwh=0.95,
+            price_cents_per_kwh=95,
             status="available",
             updated_at=now - timedelta(minutes=1),
         ),
@@ -75,6 +79,7 @@ def _seed_chargers() -> dict[str, ChargerRead]:
             bays_total=1,
             bays_available=0,
             price_per_kwh=0.55,
+            price_cents_per_kwh=55,
             status="offline",
             updated_at=now - timedelta(minutes=35),
         ),

@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = "sd-wallet-demo-v2";
   const API_BASE = "/api/v1/energy/chargers";
-  const MAX_STORED_TRANSACTIONS = 100;
+  const WALLET_API = "/api/v1/wallet";
   const MAX_STORED_SESSIONS = 20;
 
   const $ = (selector, root) => (root || document).querySelector(selector);
@@ -38,19 +38,23 @@
       maximumFractionDigits: 2,
     });
 
+  const moneyCents = (value) => {
+    if (value === null || value === undefined || value === "") return "—";
+    const cents = Number(value);
+    if (!Number.isFinite(cents)) return "—";
+    const sign = cents < 0 ? "-" : "";
+    const absolute = Math.abs(Math.trunc(cents));
+    const ringgit = Math.floor(absolute / 100).toLocaleString("en-MY");
+    const sen = String(absolute % 100).padStart(2, "0");
+    return sign + "RM " + ringgit + "." + sen;
+  };
+
   const uid = () =>
     window.crypto && crypto.randomUUID
       ? crypto.randomUUID()
       : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2);
 
   const pad = (value) => String(value).padStart(2, "0");
-
-  function daysAgo(days, hour, minute) {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
-    date.setHours(hour, minute, 0, 0);
-    return date.toISOString();
-  }
 
   function localDateInput() {
     const date = new Date();
@@ -126,63 +130,13 @@
 
   function buildDefaultState() {
     return {
-      balance: 3482.6,
-      transactions: [
-        {
-          id: uid(),
-          title: "SD reward points earned",
-          meta: "Ara Damansara to KLCC · Farah I.",
-          amount: 300,
-          direction: "in",
-          kind: "reward",
-          at: daysAgo(0, 8, 12),
-        },
-        {
-          id: uid(),
-          title: "Marketplace order",
-          meta: "2 items from the community market",
-          amount: 83,
-          direction: "out",
-          kind: "market",
-          at: daysAgo(0, 12, 40),
-        },
-        {
-          id: uid(),
-          title: "Wallet top-up",
-          meta: "FPX · Maybank •• 2841",
-          amount: 250,
-          direction: "in",
-          kind: "topup",
-          at: daysAgo(1, 9, 5),
-        },
-        {
-          id: uid(),
-          title: "Nasi Lemak Corner",
-          meta: "QR payment · Menara Sime Darby",
-          amount: 18.5,
-          direction: "out",
-          kind: "pay",
-          at: daysAgo(1, 13, 15),
-        },
-        {
-          id: uid(),
-          title: "Expense reimbursement",
-          meta: "Travel claim · October",
-          amount: 146.4,
-          direction: "in",
-          kind: "reimburse",
-          at: daysAgo(3, 16, 20),
-        },
-        {
-          id: uid(),
-          title: "Transfer to Mei Ling",
-          meta: "DuitNow transfer · lunch split",
-          amount: 32,
-          direction: "out",
-          kind: "transfer",
-          at: daysAgo(4, 12, 8),
-        },
-      ],
+      balanceCents: null,
+      transactions: [],
+      sdPoints: 0,
+      billDueCents: null,
+      walletSummary: null,
+      walletReady: false,
+      cartQuote: { count: 0, totalCents: null },
       rides: [
         {
           id: uid(),
@@ -320,7 +274,6 @@
         },
       ],
       cart: {},
-      sdPoints: 720,
       carbonSaved: 34.6,
       carpoolContributors: [
         { name: "Farah Idris", points: 900, rides: 6 },
@@ -332,7 +285,6 @@
       homeEnergy: {
         usedToday: 14.6,
         solarToday: 7.2,
-        billDue: 22.4,
       },
       ev: {
         battery: 42,
@@ -340,20 +292,6 @@
       },
       chargingSessions: [],
     };
-  }
-
-  function migrateTransactions(transactions) {
-    return transactions.map(function (transaction) {
-      if (!transaction || typeof transaction !== "object") return transaction;
-      const title = String(transaction.title || "");
-      if (transaction.kind === "ride" && title === "SD reward points earned") {
-        return { ...transaction, kind: "reward" };
-      }
-      if (transaction.kind === "reward" && title === "Expense reimbursement") {
-        return { ...transaction, kind: "reimburse" };
-      }
-      return transaction;
-    });
   }
 
   function loadState() {
@@ -364,13 +302,6 @@
       const saved = JSON.parse(raw);
       return {
         ...defaults,
-        ...saved,
-        transactions: Array.isArray(saved.transactions)
-          ? migrateTransactions(saved.transactions)
-          : defaults.transactions,
-        balance: Number.isFinite(Number(saved.balance))
-          ? Number(saved.balance)
-          : defaults.balance,
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
@@ -401,14 +332,19 @@
           : defaults.carbonSaved,
         homeEnergy:
           saved.homeEnergy && typeof saved.homeEnergy === "object"
-            ? { ...defaults.homeEnergy, ...saved.homeEnergy }
+            ? {
+                usedToday: Math.max(0, Number(saved.homeEnergy.usedToday) || 0),
+                solarToday: Math.max(0, Number(saved.homeEnergy.solarToday) || 0),
+              }
             : defaults.homeEnergy,
         ev:
           saved.ev && typeof saved.ev === "object"
             ? { ...defaults.ev, ...saved.ev }
             : defaults.ev,
         chargingSessions: Array.isArray(saved.chargingSessions)
-          ? saved.chargingSessions
+          ? saved.chargingSessions.filter(function (session) {
+              return session && Number.isFinite(Number(session.costCents));
+            })
           : defaults.chargingSessions,
       };
     } catch (error) {
@@ -416,7 +352,60 @@
     }
   }
 
+  async function walletRequest(path, options) {
+    const config = options || {};
+    const response = await fetch(WALLET_API + path, {
+      ...config,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(config.headers || {}),
+      },
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      payload = null;
+    }
+    if (!response.ok) {
+      let detail = payload && payload.detail;
+      if (Array.isArray(detail)) {
+        detail = detail
+          .map(function (item) {
+            return item.msg;
+          })
+          .join(", ");
+      }
+      throw new Error(detail || "Wallet request failed.");
+    }
+    return payload;
+  }
+
+  function applyWallet(wallet) {
+    state.balanceCents = wallet.balance_cents;
+    state.sdPoints = wallet.sd_points;
+    state.billDueCents = wallet.bill_due_cents;
+    state.transactions = wallet.transactions;
+    state.walletSummary = wallet.summary;
+    state.walletReady = true;
+    renderWallet();
+    renderHomeEnergy();
+  }
+
+  async function loadWallet() {
+    try {
+      applyWallet(await walletRequest(""));
+    } catch (error) {
+      state.walletReady = false;
+      renderWallet();
+      showToast(error.message, "error");
+    }
+  }
+
   let state = loadState();
+  let chargeQuote = { key: "", costCents: null };
+  let cartQuoteRequest = 0;
   let activeView = "wallet";
   let carpoolRole = "passenger";
   let marketQuery = "";
@@ -435,14 +424,25 @@
   };
 
   function saveState() {
-    if (state.transactions.length > MAX_STORED_TRANSACTIONS) {
-      state.transactions.length = MAX_STORED_TRANSACTIONS;
-    }
     if (state.chargingSessions.length > MAX_STORED_SESSIONS) {
       state.chargingSessions.length = MAX_STORED_SESSIONS;
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rides: state.rides,
+          listings: state.listings,
+          cart: state.cart,
+          carbonSaved: state.carbonSaved,
+          homeEnergy: {
+            usedToday: state.homeEnergy.usedToday,
+            solarToday: state.homeEnergy.solarToday,
+          },
+          ev: state.ev,
+          chargingSessions: state.chargingSessions,
+        }),
+      );
     } catch (error) {
       showToast("Could not save demo data in this browser.", "error");
     }
@@ -495,7 +495,7 @@
       eyebrow: "Demo controls",
       title: "Reset the demo?",
       subtitle:
-        "This clears wallet, carpool, marketplace, energy and chat state on this device and restores the original seed data.",
+        "This resets the database wallet ledger and clears carpool, marketplace, energy and chat state in this browser.",
       submitLabel: "Reset demo",
       body:
         '<p class="muted small">Active charging sessions are released first. The page will reload at the Wallet view.</p>',
@@ -510,9 +510,10 @@
           }
         }
         try {
+          applyWallet(await walletRequest("/reset", { method: "POST" }));
           localStorage.removeItem(STORAGE_KEY);
         } catch (error) {
-          showToast("Could not reset demo data in this browser.", "error");
+          showToast(error.message, "error");
           return;
         }
         window.location.hash = "#wallet";
@@ -554,54 +555,25 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function isThisMonth(value) {
-    const date = new Date(value);
-    const now = new Date();
-    return (
-      !Number.isNaN(date.getTime()) &&
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear()
-    );
-  }
-
-  function isThisWeek(value) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return false;
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const mondayOffset = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - mondayOffset);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    return date >= start && date < end;
-  }
-
   function renderWallet() {
     $$("[data-balance]").forEach(function (element) {
-      element.textContent = money(state.balance);
+      element.textContent = moneyCents(state.balanceCents);
     });
 
-    const spent = state.transactions
-      .filter(function (transaction) {
-        return transaction.direction === "out" && isThisMonth(transaction.at);
-      })
-      .reduce(function (sum, transaction) {
-        return sum + Number(transaction.amount || 0);
-      }, 0);
-
-    const marketSpend = state.transactions
-      .filter(function (transaction) {
-        return transaction.kind === "market";
-      })
-      .reduce(function (sum, transaction) {
-        return sum + Number(transaction.amount || 0);
-      }, 0);
-
+    const summary = state.walletSummary;
     const spentElement = $("[data-spent]");
-    if (spentElement) spentElement.textContent = money(spent);
+    if (spentElement) {
+      spentElement.textContent = summary
+        ? moneyCents(summary.spent_this_month_cents)
+        : "—";
+    }
 
     const cashbackElement = $("[data-cashback]");
-    if (cashbackElement) cashbackElement.textContent = money(marketSpend * 0.02);
+    if (cashbackElement) {
+      cashbackElement.textContent = summary
+        ? moneyCents(summary.cashback_cents)
+        : "—";
+    }
 
     renderSdPoints();
     renderCarbon();
@@ -653,6 +625,11 @@
   function renderTransactions() {
     const list = $("#tx-list");
     if (!list) return;
+    if (!state.walletReady) {
+      list.innerHTML =
+        '<li class="empty-state">Loading the wallet ledger…</li>';
+      return;
+    }
     if (!state.transactions.length) {
       list.innerHTML = '<li class="empty-state">No transactions yet.</li>';
       return;
@@ -664,8 +641,9 @@
         const isPoints = transaction.kind === "reward";
         const sign = isIn ? "+" : "-";
         const amount = isPoints
-          ? Math.abs(Number(transaction.amount || 0)).toLocaleString("en-MY") + " pts"
-          : money(transaction.amount);
+          ? Math.abs(Number(transaction.points || 0)).toLocaleString("en-MY") +
+            " pts"
+          : moneyCents(transaction.amount_cents);
         return (
           '<li class="tx-row">' +
           '<span class="tx-icon ' +
@@ -735,14 +713,10 @@
           ? '<label>Recipient<input name="recipient" type="text" placeholder="Name or wallet ID" required /></label>'
           : "") +
         '<label>Note (optional)<input name="note" type="text" placeholder="What is this for?" /></label>',
-      onSubmit: function (formData) {
-        const amount = Number(formData.get("amount"));
-        if (!Number.isFinite(amount) || amount <= 0) {
-          showToast("Enter a valid amount.", "error");
-          return;
-        }
-        if (config.direction === "out" && amount > state.balance) {
-          showToast("Insufficient wallet balance.", "error");
+      onSubmit: async function (formData) {
+        const amount = String(formData.get("amount") || "").trim();
+        if (!/^\d+(\.\d{1,2})?$/.test(amount)) {
+          showToast("Enter a valid amount with at most two decimals.", "error");
           return;
         }
         const recipient = String(formData.get("recipient") || "").trim();
@@ -758,27 +732,30 @@
               ? "Transfer to " + recipient
               : note || "Wallet payment";
 
-        state.balance += config.direction === "in" ? amount : -amount;
-        state.transactions.unshift({
-          id: uid(),
-          title: title,
-          meta: note && mode !== "pay" ? note : config.meta,
-          amount: amount,
-          direction: config.direction,
-          kind: config.kind,
-          at: new Date().toISOString(),
-        });
-        saveState();
-        renderWallet();
-        closeModal();
-        showToast(
-          money(amount) +
-            (mode === "topup"
-              ? " added to SD-Wallet."
-              : mode === "transfer"
-                ? " sent from SD-Wallet."
-                : " paid from SD-Wallet."),
-        );
+        try {
+          const wallet = await walletRequest("/transactions", {
+            method: "POST",
+            body: JSON.stringify({
+              amount: amount,
+              direction: config.direction,
+              kind: config.kind,
+              title: title,
+              meta: note && mode !== "pay" ? note : config.meta,
+            }),
+          });
+          applyWallet(wallet);
+          closeModal();
+          showToast(
+            moneyCents(wallet.transactions[0].amount_cents) +
+              (mode === "topup"
+                ? " added to SD-Wallet."
+                : mode === "transfer"
+                  ? " sent from SD-Wallet."
+                  : " paid from SD-Wallet."),
+          );
+        } catch (error) {
+          showToast(error.message, "error");
+        }
       },
     });
   }
@@ -1130,14 +1107,15 @@
   }
 
   function renderSdPoints() {
-    const value = state.sdPoints.toLocaleString("en-MY");
+    const points = state.walletReady ? Number(state.sdPoints) || 0 : null;
+    const value = points === null ? "—" : points.toLocaleString("en-MY");
     $$("[data-points]").forEach(function (element) {
       element.textContent = value;
     });
     const badge = $("#sd-points");
     if (badge) badge.textContent = value;
 
-    const intoTier = state.sdPoints % SD_POINTS_TIER_TARGET;
+    const intoTier = points === null ? 0 : points % SD_POINTS_TIER_TARGET;
     const nextReward = $("#sd-points-next");
     if (nextReward) {
       nextReward.textContent =
@@ -1156,34 +1134,28 @@
         remaining.toLocaleString("en-MY") + " points to the next tier";
     });
 
-    const week = state.transactions
-      .filter(function (transaction) {
-        return (
-          transaction.kind === "reward" &&
-          transaction.direction === "in" &&
-          isThisWeek(transaction.at)
-        );
-      })
-      .reduce(function (sum, transaction) {
-        return sum + Number(transaction.amount || 0);
-      }, 0);
+    const week = state.walletSummary
+      ? Number(state.walletSummary.points_this_week) || 0
+      : null;
     const weekBadge = $("#sd-points-week");
     if (weekBadge) {
-      weekBadge.textContent = "+" + week.toLocaleString("en-MY") + " pts this week";
+      weekBadge.textContent =
+        week === null ? "—" : "+" + week.toLocaleString("en-MY") + " pts this week";
     }
   }
 
-  function awardSdPoints(amount, meta) {
-    state.sdPoints += amount;
-    state.transactions.unshift({
-      id: uid(),
-      title: "SD reward points earned",
-      meta: meta,
-      amount: amount,
-      direction: "in",
-      kind: "reward",
-      at: new Date().toISOString(),
-    });
+  async function awardSdPoints(amount, meta) {
+    try {
+      const wallet = await walletRequest("/rewards", {
+        method: "POST",
+        body: JSON.stringify({ points: amount, meta: meta }),
+      });
+      applyWallet(wallet);
+      return true;
+    } catch (error) {
+      showToast(error.message, "error");
+      return false;
+    }
   }
 
   function awardCarpoolPoints(name, amount) {
@@ -1334,26 +1306,53 @@
       .filter(Boolean);
   }
 
-  function cartTotals() {
-    return cartEntries().reduce(
-      function (result, entry) {
-        result.count += entry.quantity;
-        result.total += Number(entry.listing.price) * entry.quantity;
-        return result;
-      },
-      { count: 0, total: 0 },
-    );
+  function cartCount() {
+    return cartEntries().reduce(function (sum, entry) {
+      return sum + entry.quantity;
+    }, 0);
+  }
+
+  async function refreshCartQuote() {
+    cartQuoteRequest += 1;
+    const requestId = cartQuoteRequest;
+    const entries = cartEntries();
+    if (!entries.length) {
+      state.cartQuote = { count: 0, totalCents: 0 };
+      renderCart();
+      return;
+    }
+    try {
+      const quote = await walletRequest("/quote-cart", {
+        method: "POST",
+        body: JSON.stringify({
+          items: entries.map(function (entry) {
+            return {
+              price: String(entry.listing.price),
+              quantity: entry.quantity,
+            };
+          }),
+        }),
+      });
+      if (requestId !== cartQuoteRequest) return;
+      state.cartQuote = {
+        count: quote.count,
+        totalCents: quote.total_cents,
+      };
+    } catch (error) {
+      if (requestId !== cartQuoteRequest) return;
+      state.cartQuote = { count: cartCount(), totalCents: null };
+    }
+    renderCart();
   }
 
   function renderCart() {
     const container = $("#cart-items");
     if (!container) return;
     const entries = cartEntries();
-    const totals = cartTotals();
     const countElement = $("#cart-count");
-    if (countElement) countElement.textContent = String(totals.count);
+    if (countElement) countElement.textContent = String(cartCount());
     const totalElement = $("#cart-total");
-    if (totalElement) totalElement.textContent = money(totals.total);
+    if (totalElement) totalElement.textContent = moneyCents(state.cartQuote.totalCents);
 
     if (!entries.length) {
       container.innerHTML =
@@ -1393,41 +1392,43 @@
     renderCart();
   }
 
-  function checkout() {
-    const totals = cartTotals();
-    if (!totals.count) {
+  async function checkout() {
+    const entries = cartEntries();
+    if (!entries.length) {
       showToast("Your basket is empty.", "error");
       return;
     }
-    if (totals.total > state.balance) {
-      showToast("Insufficient wallet balance for this order.", "error");
-      return;
-    }
-    const carbonSaved = cartEntries().reduce(function (sum, entry) {
+    const carbonSaved = entries.reduce(function (sum, entry) {
       return sum + carbonForListing(entry.listing) * entry.quantity;
     }, 0);
-    state.balance -= totals.total;
-    state.transactions.unshift({
-      id: uid(),
-      title: "Marketplace order",
-      meta: totals.count + " item(s) from the community market",
-      amount: totals.total,
-      direction: "out",
-      kind: "market",
-      at: new Date().toISOString(),
-    });
-    awardCarbon(carbonSaved);
-    state.cart = {};
-    saveState();
-    renderMarketplace();
-    renderWallet();
-    showToast(
-      "Order placed. " +
-        money(totals.total) +
-        " paid with SD-Wallet. +" +
-        formatKg(carbonSaved) +
-        " CO₂e saved by reusing items.",
-    );
+    try {
+      const wallet = await walletRequest("/checkout", {
+        method: "POST",
+        body: JSON.stringify({
+          items: entries.map(function (entry) {
+            return {
+              price: String(entry.listing.price),
+              quantity: entry.quantity,
+            };
+          }),
+        }),
+      });
+      applyWallet(wallet);
+      awardCarbon(carbonSaved);
+      state.cart = {};
+      state.cartQuote = { count: 0, totalCents: 0 };
+      saveState();
+      renderMarketplace();
+      showToast(
+        "Order placed. " +
+          moneyCents(wallet.transactions[0].amount_cents) +
+          " paid with SD-Wallet. +" +
+          formatKg(carbonSaved) +
+          " CO₂e saved by reusing items.",
+      );
+    } catch (error) {
+      showToast(error.message, "error");
+    }
   }
 
   function openSellModal() {
@@ -1503,6 +1504,7 @@
         bays_total: 4,
         bays_available: 2,
         price_per_kwh: 0.85,
+        price_cents_per_kwh: 85,
         status: "available",
         updated_at: now,
       },
@@ -1515,6 +1517,7 @@
         bays_total: 2,
         bays_available: 0,
         price_per_kwh: 0.65,
+        price_cents_per_kwh: 65,
         status: "busy",
         updated_at: now,
       },
@@ -1527,6 +1530,7 @@
         bays_total: 6,
         bays_available: 4,
         price_per_kwh: 0.95,
+        price_cents_per_kwh: 95,
         status: "available",
         updated_at: now,
       },
@@ -1539,6 +1543,7 @@
         bays_total: 1,
         bays_available: 0,
         price_per_kwh: 0.55,
+        price_cents_per_kwh: 55,
         status: "offline",
         updated_at: now,
       },
@@ -1588,7 +1593,7 @@
     const capacity = Math.max(1, Number(state.ev.capacityKwh) || 60);
     const energy =
       Math.round(Math.max(0, target - battery) * capacity) / 100;
-    const cost = Math.round(energy * (Number(charger.price_per_kwh) || 0) * 100) / 100;
+    const energyWh = Math.max(0, Math.round(energy * 1000));
     const carbon = Math.round(energy * CARBON_PER_EV_KWH * 10) / 10;
     const minutes =
       energy > 0 && Number(charger.power_kw) > 0
@@ -1598,13 +1603,55 @@
       battery: battery,
       capacity: capacity,
       energy: energy,
-      cost: cost,
+      energyWh: energyWh,
       carbon: carbon,
       minutes: minutes,
     };
   }
 
-  function estimateMarkup(plan) {
+  function chargeQuoteKey(charger, plan) {
+    return (
+      charger.id +
+      ":" +
+      charger.price_cents_per_kwh +
+      ":" +
+      plan.energyWh +
+      ":" +
+      chargeTarget
+    );
+  }
+
+  function currentChargeCost(charger, plan) {
+    return chargeQuote.key === chargeQuoteKey(charger, plan)
+      ? chargeQuote.costCents
+      : null;
+  }
+
+  function ensureChargeQuote(charger, plan) {
+    const key = chargeQuoteKey(charger, plan);
+    if (chargeQuote.key === key) return;
+    chargeQuote = { key: key, costCents: null };
+    walletRequest("/quote-charge", {
+      method: "POST",
+      body: JSON.stringify({
+        energy_wh: plan.energyWh,
+        price_cents_per_kwh: charger.price_cents_per_kwh,
+      }),
+    })
+      .then(function (quote) {
+        if (chargeQuote.key !== key) return;
+        chargeQuote.costCents = quote.cost_cents;
+        renderEnergy();
+      })
+      .catch(function (error) {
+        if (chargeQuote.key !== key) return;
+        chargeQuote.costCents = null;
+        showToast(error.message, "error");
+        renderEnergy();
+      });
+  }
+
+  function estimateMarkup(plan, costCents) {
     if (plan.energy <= 0) {
       return '<p class="muted small">Your battery is already at the selected target.</p>';
     }
@@ -1616,7 +1663,7 @@
       plan.minutes +
       " min</strong></div>" +
       '<div class="ev-estimate-row"><span>Cost</span><strong>' +
-      escapeHtml(money(plan.cost)) +
+      escapeHtml(moneyCents(costCents)) +
       "</strong></div>" +
       '<div class="ev-estimate-row"><span>CO₂e saved</span><strong>' +
       formatKg(plan.carbon) +
@@ -1630,6 +1677,8 @@
     const range = Math.round(battery * 4.45);
     const running = activeSession();
     const charger = availableCharger();
+    const plan = charger ? chargePlan(charger, chargeTarget) : null;
+    const costCents = plan ? currentChargeCost(charger, plan) : null;
 
     const batteryNode = $("[data-ev-battery]");
     if (batteryNode) batteryNode.textContent = Math.round(battery) + "%";
@@ -1649,7 +1698,7 @@
           " · " +
           charger.power_kw +
           " kW · " +
-          money(charger.price_per_kwh) +
+          moneyCents(charger.price_cents_per_kwh) +
           "/kWh";
       }
       if (statusNode) statusNode.textContent = "Ready";
@@ -1674,10 +1723,9 @@
         button.textContent = "Charging in progress";
       }
     } else if (charger) {
-      const plan = chargePlan(charger, chargeTarget);
       if (estimate) {
         estimate.hidden = false;
-        estimate.innerHTML = estimateMarkup(plan);
+        estimate.innerHTML = estimateMarkup(plan, costCents);
       }
       if (button) {
         if (plan.energy <= 0) {
@@ -1685,7 +1733,9 @@
           button.textContent = "Already at " + chargeTarget + "%";
         } else {
           button.disabled = false;
-          button.textContent = "Start charging · " + money(plan.cost);
+          button.textContent =
+            "Start charging · " +
+            (costCents === null ? "…" : moneyCents(costCents));
         }
       }
     } else {
@@ -1708,6 +1758,9 @@
 
     renderChargingSessions();
     renderHomeEnergy();
+    if (!running && charger && plan.energy > 0) {
+      ensureChargeQuote(charger, plan);
+    }
   }
 
   async function patchCharger(id, patch) {
@@ -1740,7 +1793,7 @@
     renderEnergy();
   }
 
-  function startCharging() {
+  async function startCharging() {
     if (activeSession()) {
       showToast("A charging session is already running.", "error");
       return;
@@ -1758,55 +1811,56 @@
       );
       return;
     }
-    if (plan.cost > state.balance) {
-      showToast("Insufficient wallet balance for this session.", "error");
-      return;
+
+    try {
+      const wallet = await walletRequest("/charge", {
+        method: "POST",
+        body: JSON.stringify({
+          energy_wh: plan.energyWh,
+          price_cents_per_kwh: charger.price_cents_per_kwh,
+          title: "EV charging · " + charger.name,
+          meta: plan.energy.toFixed(1) + " kWh · " + plan.minutes + " min",
+        }),
+      });
+      const costCents = wallet.transactions[0].amount_cents;
+      applyWallet(wallet);
+
+      const startedAt = new Date();
+      const endsAt = new Date(startedAt.getTime() + plan.minutes * 60000);
+      state.chargingSessions.unshift({
+        id: uid(),
+        chargerId: charger.id,
+        chargerName: charger.name,
+        energy: plan.energy,
+        costCents: costCents,
+        minutes: plan.minutes,
+        carbon: plan.carbon,
+        target: chargeTarget,
+        status: "active",
+        startedAt: startedAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+      });
+
+      const nextBays = Math.max(0, Number(charger.bays_available) - 1);
+      await patchCharger(charger.id, {
+        status: nextBays > 0 ? "available" : "busy",
+        bays_available: nextBays,
+      });
+
+      saveState();
+      renderEnergy();
+      showToast(
+        moneyCents(costCents) +
+          " paid — charging to " +
+          chargeTarget +
+          "%. Stop any time to settle rewards.",
+      );
+    } catch (error) {
+      showToast(error.message, "error");
     }
-
-    const startedAt = new Date();
-    const endsAt = new Date(startedAt.getTime() + plan.minutes * 60000);
-    state.balance = Math.round((state.balance - plan.cost) * 100) / 100;
-    state.transactions.unshift({
-      id: uid(),
-      title: "EV charging · " + charger.name,
-      meta: plan.energy.toFixed(1) + " kWh · " + plan.minutes + " min",
-      amount: plan.cost,
-      direction: "out",
-      kind: "charge",
-      at: startedAt.toISOString(),
-    });
-    state.chargingSessions.unshift({
-      id: uid(),
-      chargerId: charger.id,
-      chargerName: charger.name,
-      energy: plan.energy,
-      cost: plan.cost,
-      minutes: plan.minutes,
-      carbon: plan.carbon,
-      target: chargeTarget,
-      status: "active",
-      startedAt: startedAt.toISOString(),
-      endsAt: endsAt.toISOString(),
-    });
-
-    const nextBays = Math.max(0, Number(charger.bays_available) - 1);
-    patchCharger(charger.id, {
-      status: nextBays > 0 ? "available" : "busy",
-      bays_available: nextBays,
-    });
-
-    saveState();
-    renderWallet();
-    renderEnergy();
-    showToast(
-      money(plan.cost) +
-        " paid — charging to " +
-        chargeTarget +
-        "%. Stop any time to settle rewards.",
-    );
   }
 
-  function settleSession(session, showNotice) {
+  async function settleSession(session, showNotice) {
     if (!session || session.status !== "active") return;
     session.status = "complete";
     session.endedAt = new Date().toISOString();
@@ -1819,7 +1873,7 @@
     );
 
     awardCarbon(Number(session.carbon) || 0);
-    awardSdPoints(
+    const rewarded = await awardSdPoints(
       SD_POINTS_PER_CHARGE,
       "EV charging · " + Number(session.energy).toFixed(1) + " kWh",
     );
@@ -1838,7 +1892,10 @@
           : bays > 0
             ? "available"
             : "busy";
-      patchCharger(charger.id, { status: status, bays_available: bays });
+      await patchCharger(charger.id, {
+        status: status,
+        bays_available: bays,
+      });
     }
 
     saveState();
@@ -1848,9 +1905,10 @@
       showToast(
         "Charging complete — +" +
           formatKg(session.carbon) +
-          " CO₂e and +" +
-          SD_POINTS_PER_CHARGE +
-          " SD Points.",
+          " CO₂e" +
+          (rewarded
+            ? " and +" + SD_POINTS_PER_CHARGE + " SD Points."
+            : " (SD Points could not be recorded)."),
       );
     }
   }
@@ -1864,9 +1922,9 @@
     });
     if (!due.length) return;
     if (!chargers.length) await loadChargers();
-    due.forEach(function (session) {
-      settleSession(session, true);
-    });
+    for (const session of due) {
+      await settleSession(session, true);
+    }
   }
 
   async function releaseChargerSlot(chargerId) {
@@ -1887,12 +1945,12 @@
     await patchCharger(chargerId, { status: status, bays_available: bays });
   }
 
-  function stopCharging(sessionId) {
+  async function stopCharging(sessionId) {
     const session = state.chargingSessions.find(function (candidate) {
       return candidate.id === sessionId && candidate.status === "active";
     });
     if (!session) return;
-    settleSession(session, true);
+    await settleSession(session, true);
   }
 
   function renderChargingSessions() {
@@ -1924,7 +1982,7 @@
             " kWh · " +
             remainingMinutes(session) +
             " min left · " +
-            money(session.cost)
+            moneyCents(session.costCents)
           : Number(session.energy).toFixed(1) +
             " kWh · +" +
             gained +
@@ -1953,55 +2011,50 @@
     const home = state.homeEnergy || {};
     const used = Math.max(0, Number(home.usedToday) || 0);
     const solar = Math.max(0, Number(home.solarToday) || 0);
-    const bill = Math.max(0, Number(home.billDue) || 0);
+    const bill = state.walletReady ? Number(state.billDueCents) || 0 : null;
 
     const usedNode = $("[data-energy-used]");
     if (usedNode) usedNode.textContent = used.toFixed(1) + " kWh";
     const solarNode = $("[data-energy-solar]");
     if (solarNode) solarNode.textContent = solar.toFixed(1) + " kWh";
     const billNode = $("[data-energy-bill]");
-    if (billNode) billNode.textContent = money(bill);
+    if (billNode) billNode.textContent = moneyCents(bill);
     const dueNode = $("[data-energy-due]");
     if (dueNode) {
       dueNode.textContent =
-        bill > 0 ? "Due on the next statement" : "Paid with SD-Wallet";
+        bill === null
+          ? "Loading wallet…"
+          : bill > 0
+            ? "Due on the next statement"
+            : "Paid with SD-Wallet";
     }
 
     const payButton = $("#pay-energy-bill");
     if (payButton) {
-      payButton.disabled = bill <= 0;
-      payButton.textContent = bill > 0 ? "Pay bill" : "Bill paid";
+      payButton.disabled = !(bill > 0);
+      payButton.textContent =
+        bill === null ? "Loading wallet…" : bill > 0 ? "Pay bill" : "Bill paid";
     }
   }
 
-  function payEnergyBill() {
-    const due = Math.max(0, Number(state.homeEnergy.billDue) || 0);
-    if (due <= 0) {
+  async function payEnergyBill() {
+    if (!(state.billDueCents > 0)) {
       showToast("No energy bill is due right now.", "error");
       return;
     }
-    if (due > state.balance) {
-      showToast("Insufficient wallet balance to pay the energy bill.", "error");
-      return;
+    try {
+      const wallet = await walletRequest("/pay-bill", { method: "POST" });
+      applyWallet(wallet);
+      showToast(
+        moneyCents(wallet.transactions[0].amount_cents) +
+          " energy bill paid with SD-Wallet.",
+      );
+    } catch (error) {
+      showToast(error.message, "error");
     }
-    state.balance -= due;
-    state.transactions.unshift({
-      id: uid(),
-      title: "Home energy bill",
-      meta: "Ara Damansara residence · monthly statement",
-      amount: due,
-      direction: "out",
-      kind: "utility",
-      at: new Date().toISOString(),
-    });
-    state.homeEnergy.billDue = 0;
-    saveState();
-    renderWallet();
-    renderHomeEnergy();
-    showToast(money(due) + " energy bill paid with SD-Wallet.");
   }
 
-  document.addEventListener("click", function (event) {
+  document.addEventListener("click", async function (event) {
     const nav = event.target.closest("[data-nav]");
     if (nav) {
       activateView(nav.dataset.nav);
@@ -2040,13 +2093,18 @@
       if (!ride || ride.role === "driver" || ride.seats < 1 || ride.offeredByMe) {
         return;
       }
-      ride.seats -= 1;
       ride.offeredByMe = true;
-      awardSdPoints(
+      const rewarded = await awardSdPoints(
         SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
       );
+      if (!rewarded) {
+        ride.offeredByMe = false;
+        renderRides();
+        return;
+      }
       awardCarpoolPoints("Aisyah Rahman", SD_POINTS_PER_PASSENGER);
+      ride.seats -= 1;
       awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderRides();
@@ -2076,6 +2134,7 @@
       state.cart[id] = (Number(state.cart[id]) || 0) + 1;
       saveState();
       renderCart();
+      refreshCartQuote();
       showToast("Added to your basket.");
       return;
     }
@@ -2086,6 +2145,7 @@
       state.cart[id] = (Number(state.cart[id]) || 0) + 1;
       saveState();
       renderCart();
+      refreshCartQuote();
       return;
     }
 
@@ -2100,6 +2160,7 @@
       }
       saveState();
       renderCart();
+      refreshCartQuote();
       return;
     }
 
@@ -2225,6 +2286,8 @@
   renderSdPoints();
   renderMarketplace();
   renderEnergy();
+  loadWallet();
+  refreshCartQuote();
 
   const dateField = $("#carpool-form [name='date']");
   const timeField = $("#carpool-form [name='time']");

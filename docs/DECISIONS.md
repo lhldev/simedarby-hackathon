@@ -5,6 +5,35 @@ agents do not repeatedly ask for the same changes. Before proposing product
 work, read this file. Do **not** re-propose a rejected item unless the user
 explicitly asks for it.
 
+## 2026-10-22 — Money moves into Postgres; Rust owns the arithmetic
+
+### Accepted and implemented
+
+- **Server-authoritative wallet.** `wallets` stores `balance_cents`,
+  `sd_points` and `bill_due_cents`; `wallet_transactions` is the append-only
+  ledger. Both are created by `make db`.
+- **Rust owns every money calculation.** Decimal strings are parsed to integer
+  cents, debits/credits are validated for sign, precision, overflow and
+  insufficient funds, and cart totals, charge costs, points and cashback are
+  computed in `starter_rust`. Python and JavaScript only transport and format
+  the result.
+- **No browser balance mutation.** Top-up, pay, transfer, marketplace checkout,
+  EV charging, energy-bill payment and rewards all call `/api/v1/wallet`.
+  Non-money demo state (carpool, listings/cart, EV battery/sessions, carbon)
+  remains in `localStorage`.
+- **Reset covers both layers.** **Reset demo** reseeds the Postgres wallet and
+  ledger, clears browser demo state and releases charging bays.
+- **Pitch repositioning.** Documentation now leads with financial safety and
+  native speed. The `visits` endpoint remains as an anonymous audit demo but is
+  no longer described as login/signing or as the reason Rust exists.
+
+### Verification for this pass
+
+- `uv run pytest -q` — 18 passed.
+- `uv run ruff check .` — clean.
+- `cargo fmt --check` — clean.
+- `node --check app/web/static/app.js` — clean.
+
 ## 2026-10-21 — EV & Energy replaces Restaurant Monitor
 
 ### Accepted and implemented

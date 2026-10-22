@@ -1,7 +1,7 @@
 # SD-Wallet — Sime Darby All-in-One
 
-A hackathon front end that brings five day-to-day experiences into one
-Sime Darby-branded app:
+A hackathon app that brings five day-to-day experiences into one
+Sime Darby-branded experience:
 
 1. **SD-Wallet** — a Touch 'n Go-style wallet with top-ups, payments,
    transfers, a virtual card, rewards and a live transaction feed.
@@ -17,14 +17,14 @@ Sime Darby-branded app:
    charger and pays from SD-Wallet, plus home-energy tracking. Charger data is
    exposed through a small integration API for Sime Darby operator systems.
 
-There is **no login flow**. The app runs entirely as a demo identity (Aisyah
-Rahman) and keeps wallet, carpool, marketplace, home-energy and charging data
-in `localStorage`, so state survives a page reload in the same browser. The
-Wallet view includes a one-click **Reset demo** action that restores the
-original seed state.
-
-The original FastAPI + Neon Postgres + Rust visitor-log backend is still
-present as the stack proof; the root page is now the SD-Wallet experience.
+There is **no login flow**. The app runs as a demo identity (Aisyah Rahman).
+**Money is server-authoritative:** the wallet balance, cash ledger, energy-bill
+liability and SD Points live in Neon Postgres, and every balance change or
+money total is computed by the native Rust extension using integer cents. Only
+non-money demo state — carpool posts, marketplace listings/cart, EV battery,
+charging sessions and carbon estimates — lives in `localStorage`. The Wallet
+view includes a one-click **Reset demo** action that resets the database seed
+and clears the browser demo state.
 
 ## Why it wins
 
@@ -39,10 +39,19 @@ present as the stack proof; the root page is now the SD-Wallet experience.
 - **A real operations story.** Charger availability is backed by a live
   integration API that a Sime Darby operator system can update with one PATCH
   call, while the demo UI simply picks a ready bay.
-- **A repeatable live demo.** The **Reset demo** action restores seed state and
-  releases active charging bays, and the dashboard falls back to cached charger
-  data if the API is unavailable.
-- **Stack proof, not just UI.** FastAPI, Neon Postgres, a PyO3/Maturin Rust
+- **A safe money core, not a mocked balance.** Every wallet mutation is a
+  server-side ledger transaction. Rust parses decimal amounts into integer
+  cents, checks overflow and insufficient funds, multiplies cart lines and
+  computes charging costs; Python never does float money arithmetic. Postgres
+  holds the authoritative balance, and writes take a row lock inside one
+  transaction.
+- **Native speed where it matters.** The wallet hot path runs in the compiled
+  PyO3 extension, so balance updates, cart totals and charge quotes stay exact
+  and fast without shipping money logic to the browser.
+- **A repeatable live demo.** The **Reset demo** action restores the database
+  seed and releases active charging bays, and the dashboard falls back to cached
+  charger data if the API is unavailable.
+- **A real deployment story.** FastAPI, Neon Postgres, a PyO3/Maturin Rust
   extension and a Vercel deployment pipeline are all wired in.
 
 ## Run it
@@ -50,11 +59,39 @@ present as the stack proof; the root page is now the SD-Wallet experience.
 ```bash
 cp .env.example .env   # set DATABASE_URL (Neon Postgres or sqlite://) and GRAFILAB_KEY
 make setup             # install uv deps + compile the Rust extension
-make db                # create the visits table (visitor-log API only)
+make db                # create wallet, ledger and visit tables
 make dev               # http://localhost:8000
 ```
 
 `make test` runs the pytest suite. `make lint` runs Ruff.
+
+## Money & financial safety
+
+Money is treated as a backend concern, not a browser variable:
+
+- **Integer cents, never floats.** Amounts cross the API as decimal strings and
+  are parsed by Rust into `i64` cents. Cart totals, EV charge costs, points and
+  cashback are computed in Rust. The browser only formats values returned by
+  the server.
+- **Rust owns the arithmetic in every mutation.** `parse_amount_cents`, `apply_wallet_delta`,
+  `cart_total_cents`, `charge_cost_cents`, `add_points` and `cashback_cents`
+  validate sign, precision, overflow and insufficient funds before any row is
+  written.
+- **Postgres owns the balance.** `wallets` holds the authoritative balance,
+  SD Points and energy-bill liability; `wallet_transactions` is the append-only
+  ledger. Mutations lock the wallet row and commit in one transaction.
+- **The client cannot mutate the stored balance directly.** There is no
+  browser-side balance arithmetic. Top-up, payment, transfer, marketplace
+  checkout, charging, bill payment and rewards all round-trip through
+  `/api/v1/wallet`, which validates and records the ledger entry. Demo top-ups
+  are intentionally simulated.
+- **Demo boundaries are explicit.** There is no authentication, so the demo
+  uses one shared wallet identity, and top-up amounts are intentionally
+  simulated for the hackathon. The safety claim is about exact arithmetic,
+  validation and durable ledger storage — not KYC or real payment rails.
+- **Non-money state stays local.** Carpool posts, marketplace listings, cart
+  contents, EV battery, charging sessions and symbolic carbon estimates remain
+  in `localStorage`; they never determine the authoritative wallet balance.
 
 ## Front-end layout
 
@@ -62,7 +99,10 @@ make dev               # http://localhost:8000
 app/web/templates/index.html   App shell, navigation and all five views
 app/web/static/styles.css      Sime Darby design system and responsive layout
 app/web/static/app.js          State, rendering, chat, cart, carpool, impact dashboard, energy and chargers
+app/api/routes/wallet.py       Server-authoritative wallet and ledger API
 app/api/routes/energy.py       Lightweight in-memory charger availability API
+app/services/wallet.py         Wallet domain rules, seeding and ledger transactions
+rust_ext/src/lib.rs            Native integer-cent money arithmetic
 ```
 
 Everything is vanilla HTML/CSS/JS — no build step, no front-end dependencies.
@@ -89,15 +129,16 @@ from SD-Wallet.
 
 | Area | Behaviour |
 | --- | --- |
-| Wallet | In-browser balance, transactions, top-up/pay/transfer modal, rewards summary, unified community-impact panel and **Reset demo**. |
+| Wallet | Postgres-backed balance and ledger, Rust-computed top-up/pay/transfer/checkout/charge/bill operations, rewards summary, unified community-impact panel and **Reset demo**. |
 | By-Laws Alignment | GrafilyLab-assisted streaming answers grounded in `mock-by-laws.txt`, plus suggested prompts. |
 | Carpool | Role toggle, route form, ride board, seat reservation and SD reward points. |
 | Marketplace | Search, category filters, listing creation, basket quantities and checkout. |
 | EV &amp; Energy | One-tap charging with an auto-selected bay, paid sessions, home-energy meter and bill payment, SD Points and CO₂e. |
 
-Charging sessions, home-energy values and wallet data can be reset with the
-**Reset demo** action in the Wallet view, or by clearing site data for the app.
-Active charging bays are released back through the integration API before the reset.
+The **Reset demo** action reseeds the wallet and ledger in Postgres, clears
+browser demo state and releases active charging bays through the integration
+API. Clearing site data alone only resets non-money local state; the server
+ledger remains authoritative.
 
 The Wallet's **Your community impact** panel combines rides shared, marketplace
 items reused, EV energy charged, SD Points and symbolic CO₂e saved, so judges
@@ -107,7 +148,8 @@ can see the sustainability story without visiting each module.
 
 1. **Wallet (15s).** Open `#wallet`, point out the balance, SD Points and the
    **Your community impact** panel. Use **Add money** or **Pay** to show a live
-   transaction updating the feed.
+   transaction updating the feed — and call out that the ledger is written to
+   Postgres by the Rust cents engine, not adjusted in the browser.
 2. **By-Laws Alignment (25s).** Ask "Can I park a lorry overnight?" or tap a
    topic. Call out the direct answer, the grounded limits and the mock by-law
    disclaimer.
@@ -121,7 +163,8 @@ can see the sustainability story without visiting each module.
    how the wallet balance, transaction feed, session and home energy update
    together. Stop to release the bay and earn SD Points plus CO₂e.
 6. **Reset (10s).** Return to the Wallet view and click **Reset demo** to release
-   active bays and restore seed state for the next judge.
+   active bays, reseed the Postgres wallet and restore browser demo state for
+   the next judge.
 
 ## Impact model (symbolic)
 
@@ -159,25 +202,45 @@ curl -X PATCH "http://localhost:8000/api/v1/energy/chargers/klcc-express/availab
 `status` is one of `available`, `busy` or `offline`. `bays_available` must not
 exceed the charger capacity. There is no authentication on this demo endpoint.
 
-## Existing backend API
+## Backend API
+
+### Wallet and money
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/v1/wallet` | Read the authoritative wallet, ledger and monthly summary |
+| `POST` | `/api/v1/wallet/transactions` | Top up, pay or transfer using Rust cent arithmetic |
+| `POST` | `/api/v1/wallet/checkout` | Compute a cart total and debit the wallet in Rust |
+| `POST` | `/api/v1/wallet/quote-cart` | Price a cart without writing to the ledger |
+| `POST` | `/api/v1/wallet/quote-charge` | Quote an EV charge cost in cents |
+| `POST` | `/api/v1/wallet/charge` | Debit a charging session using the Rust cost calculation |
+| `POST` | `/api/v1/wallet/rewards` | Add SD Points without changing cash |
+| `POST` | `/api/v1/wallet/pay-bill` | Settle the energy-bill liability |
+| `POST` | `/api/v1/wallet/reset` | Reseed the demo wallet and ledger |
+
+The `wallets` and `wallet_transactions` tables are created explicitly with
+`make db`, never during app startup.
+
+### Other endpoints
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `GET` | `/health` | Liveness probe |
 | `POST` | `/api/v1/bylaws/chat` | Stream a by-law answer as server-sent events |
-| `POST` | `/api/v1/visits` | Log a visit signed by the Rust extension |
+| `POST` | `/api/v1/visits` | Log an anonymous visit fingerprint from the Rust extension |
 | `GET` | `/api/v1/visits` | List the 10 most recent visits |
 
-The `visits` table (`id`, `timestamp`, `user_agent`, `rust_signature`) is
-created explicitly with `make db`, never during app startup.
+The `visits` table (`id`, `timestamp`, `user_agent`, `rust_signature`) is also
+created explicitly with `make db`. It is a demo audit log, not a login system.
 
 ## Architecture at a glance
 
 ```text
-Browser (vanilla HTML/CSS/JS, localStorage demo state)
-  |-- /api/v1/bylaws/chat   SSE -> GrafilyLab, grounded in mock-by-laws.txt
+Browser (vanilla HTML/CSS/JS, localStorage for non-money demo state)
+  |-- /api/v1/wallet       Rust cent math -> wallets + ledger in Neon Postgres
+  |-- /api/v1/bylaws/chat  SSE -> GrafilyLab, grounded in mock-by-laws.txt
   |-- /api/v1/energy       in-memory charger availability API for the live dashboard
-  |-- /api/v1/visits       Rust-signed visit log -> Neon Postgres
+  |-- /api/v1/visits       anonymous Rust visit fingerprint -> Neon Postgres
 FastAPI (app/main.py) on Vercel
 ```
 
@@ -186,7 +249,8 @@ FastAPI (app/main.py) on Vercel
 - **Python 3.12+** managed by `uv`
 - **FastAPI** app exported from `app/main.py` for Vercel
 - **SQLAlchemy 2.0** against Neon Postgres via `DATABASE_URL`
-- **Native Rust extension** (`starter_rust`, PyO3/Maturin) for visit signatures
+- **Native Rust extension** (`starter_rust`, PyO3/Maturin) for integer-cent
+  wallet arithmetic, cart/charge totals and anonymous visit fingerprints
 - **Vanilla JS/CSS** front end served from `app/web/`
 
 ## Theme

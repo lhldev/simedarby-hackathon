@@ -10,6 +10,7 @@ def test_list_chargers(client):
         "hq-guest",
     }
     assert all("bays_available" in charger for charger in chargers)
+    assert all("price_cents_per_kwh" in charger for charger in chargers)
 
 
 def test_update_availability(client):
