@@ -322,6 +322,13 @@
       cart: {},
       sdPoints: 720,
       carbonSaved: 34.6,
+      carpoolContributors: [
+        { name: "Farah Idris", points: 900, rides: 6 },
+        { name: "Daniel Tan", points: 750, rides: 5 },
+        { name: "Aina Zulkifli", points: 600, rides: 4 },
+        { name: "Aisyah Rahman", points: 450, rides: 3 },
+        { name: "Raj Kumar", points: 300, rides: 2 },
+      ],
       homeEnergy: {
         usedToday: 14.6,
         solarToday: 7.2,
@@ -367,6 +374,23 @@
         rides: Array.isArray(saved.rides) ? saved.rides : defaults.rides,
         listings: Array.isArray(saved.listings) ? saved.listings : defaults.listings,
         cart: saved.cart && typeof saved.cart === "object" ? saved.cart : {},
+        carpoolContributors: Array.isArray(saved.carpoolContributors)
+          ? saved.carpoolContributors
+              .filter(function (contributor) {
+                return (
+                  contributor &&
+                  typeof contributor.name === "string" &&
+                  Number.isFinite(Number(contributor.points))
+                );
+              })
+              .map(function (contributor) {
+                return {
+                  name: contributor.name,
+                  points: Number(contributor.points),
+                  rides: Math.max(0, Number(contributor.rides) || 0),
+                };
+              })
+          : defaults.carpoolContributors,
         sdPoints: Number.isFinite(Number(saved.sdPoints))
           ? Math.max(0, Number(saved.sdPoints))
           : Number.isFinite(Number(saved.primePoints))
@@ -996,6 +1020,46 @@
       .join("");
   }
 
+  function renderCarpoolRanking() {
+    const list = $("#carpool-ranking");
+    if (!list) return;
+
+    const contributors = state.carpoolContributors
+      .slice()
+      .sort(function (left, right) {
+        return right.points - left.points || left.name.localeCompare(right.name);
+      })
+      .slice(0, 5);
+
+    list.innerHTML = contributors
+      .map(function (contributor, index) {
+        const isCurrentUser = contributor.name === "Aisyah Rahman";
+        return (
+          '<li class="ranking-row ' +
+          (isCurrentUser ? "is-current-user" : "") +
+          '">' +
+          '<span class="ranking-position">' +
+          (index + 1) +
+          "</span>" +
+          '<span class="avatar ranking-avatar">' +
+          escapeHtml(initialsOf(contributor.name)) +
+          "</span>" +
+          '<span class="ranking-copy"><strong>' +
+          escapeHtml(contributor.name) +
+          (isCurrentUser ? " (You)" : "") +
+          "</strong><small>" +
+          contributor.rides +
+          (contributor.rides === 1 ? " shared ride" : " shared rides") +
+          "</small></span>" +
+          '<strong class="ranking-points">' +
+          contributor.points.toLocaleString("en-MY") +
+          " pts</strong>" +
+          "</li>"
+        );
+      })
+      .join("");
+  }
+
   const SD_POINTS_PER_PASSENGER = 150;
   const SD_POINTS_PER_CHARGE = 40;
   const SD_POINTS_TIER_TARGET = 1000;
@@ -1122,6 +1186,18 @@
     });
   }
 
+  function awardCarpoolPoints(name, amount) {
+    let contributor = state.carpoolContributors.find(function (candidate) {
+      return candidate.name === name;
+    });
+    if (!contributor) {
+      contributor = { name: name, points: 0, rides: 0 };
+      state.carpoolContributors.push(contributor);
+    }
+    contributor.points += amount;
+    contributor.rides += 1;
+  }
+
   function reserveRide(id) {
     const ride = state.rides.find(function (candidate) {
       return candidate.id === id;
@@ -1131,10 +1207,12 @@
     }
 
     ride.seats -= 1;
+    awardCarpoolPoints(ride.name, SD_POINTS_PER_PASSENGER);
     ride.joinedByMe = true;
     awardCarbon(CARBON_PER_SHARED_RIDE);
     saveState();
     renderRides();
+    renderCarpoolRanking();
     renderCarbon();
     renderImpact();
     showToast(
@@ -1968,9 +2046,12 @@
         SD_POINTS_PER_PASSENGER,
         "Community ride · you offered a seat to a neighbour",
       );
+      awardCarpoolPoints("Aisyah Rahman", SD_POINTS_PER_PASSENGER);
       awardCarbon(CARBON_PER_SHARED_RIDE);
       saveState();
       renderRides();
+      renderSdPoints();
+      renderCarpoolRanking();
       renderWallet();
       showToast(
         "Interest sent — you earned " +
@@ -2140,6 +2221,7 @@
   setCarpoolRole("passenger");
   renderWallet();
   renderRides();
+  renderCarpoolRanking();
   renderSdPoints();
   renderMarketplace();
   renderEnergy();
