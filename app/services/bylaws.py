@@ -26,17 +26,34 @@ If relevant, remind the user that this is a mock by-law set, not legal advice,
 and that they should confirm anything important with the township management
 office.
 
+Earlier conversation turns may be provided for context. Always answer the
+latest user message. Use earlier turns only to understand references and
+follow-ups; do not repeat an earlier answer or treat it as the current question.
+
 MOCK BY-LAWS:
 """
+
+MAX_HISTORY_TURNS = 20
 
 
 def load_by_laws() -> str:
     return BYLAWS_PATH.read_text(encoding="utf-8")
 
 
-def build_messages(question: str) -> list[dict[str, str]]:
+def build_messages(
+    question: str, history: list[dict[str, str]] | None = None
+) -> list[dict[str, str]]:
+    turns: list[dict[str, str]] = []
+    for turn in history or []:
+        role = turn.get("role")
+        text = (turn.get("text") or "").strip()
+        if role not in {"user", "assistant"} or not text:
+            continue
+        turns.append({"role": role, "content": text})
+
     return [
         {"role": "system", "content": SYSTEM_PROMPT + load_by_laws()},
+        *turns[-MAX_HISTORY_TURNS:],
         {"role": "user", "content": question},
     ]
 
@@ -45,7 +62,9 @@ def _sse(payload: dict[str, str]) -> str:
     return "data: " + json.dumps(payload) + "\n\n"
 
 
-async def stream_by_law_answer(question: str) -> AsyncIterator[str]:
+async def stream_by_law_answer(
+    question: str, history: list[dict[str, str]] | None = None
+) -> AsyncIterator[str]:
     if not settings.grafilab_key:
         yield _sse(
             {
@@ -56,7 +75,7 @@ async def stream_by_law_answer(question: str) -> AsyncIterator[str]:
         return
 
     try:
-        messages = build_messages(question)
+        messages = build_messages(question, history)
     except OSError:
         yield _sse(
             {

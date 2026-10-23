@@ -839,6 +839,15 @@
 
     chatGeneration += 1;
     const generation = chatGeneration;
+    const history = chatMessages
+      .slice(1)
+      .filter(function (message) {
+        return message.text;
+      })
+      .slice(-20)
+      .map(function (message) {
+        return { role: message.role, text: message.text };
+      });
     chatMessages.push({ role: "user", text: text });
     const assistant = { role: "assistant", text: "" };
     renderChat();
@@ -873,7 +882,7 @@
           "Content-Type": "application/json",
           Accept: "text/event-stream",
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history: history }),
       });
       if (!response.ok || !response.body) {
         throw new Error("Chat request failed");

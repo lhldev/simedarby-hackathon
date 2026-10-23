@@ -5,6 +5,25 @@ agents do not repeatedly ask for the same changes. Before proposing product
 work, read this file. Do **not** re-propose a rejected item unless the user
 explicitly asks for it.
 
+## 2026-10-23 — By-laws chat carries the visible conversation
+
+### Accepted and implemented
+
+- **Multi-turn context.** The browser sends the on-screen conversation
+  (`history`) with each `/api/v1/bylaws/chat` request; the server rebuilds
+  `[system, history, latest user]` and caps history at the latest 20 turns.
+  Only `user` and `assistant` roles are accepted, so clients cannot inject a
+  system prompt. History is ephemeral and cleared by **Reset chat**.
+- **Latest message wins.** The system prompt instructs the model to answer the
+  latest user message and use earlier turns only for context, avoiding repeats
+  of an earlier answer.
+
+### Verification for this pass
+
+- `uv run pytest -q` — 24 passed.
+- `uv run ruff check .` — clean.
+- `node --check app/web/static/app.js` — clean.
+
 ## 2026-10-22 — Money moves into Postgres; Rust owns the arithmetic
 
 ### Accepted and implemented
