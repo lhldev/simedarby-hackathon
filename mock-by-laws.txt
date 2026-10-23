@@ -1,50 +1,201 @@
 MOCK TOWNSHIP BY-LAWS — DEMO ONLY
-This is a stripped-down mock, NOT the real Sime Darby by-laws. It loosely
-mimics themes from Sime Darby Property townships for hackathon testing.
-Verify every rule with the actual township management before relying on it.
+This is a mock by-law set, NOT the real Sime Darby by-laws and not legal advice.
+It loosely mimics themes from Sime Darby Property townships so the By-Laws
+Alignment demo has a broader knowledge base to answer from. It is illustrative
+only. Verify every rule with the actual township management before relying on it.
 
-1. Property use
-- Lots are residential unless gazetted for commercial use.
-- Home businesses need written management approval and must not cause signage,
-  parking, noise or delivery nuisance.
-- Short-term rentals (e.g. Airbnb) need approval and neighbour notice; max 6 guests.
+0. How to read these by-laws
+- "Township" means the managed residential and commercial area covered by these rules.
+- "Common property" means roads, lanes, walkways, corridors, lifts, lobbies, drains,
+  parks, playgrounds, pools, gyms, halls, courts, gardens and any shared facility.
+- "Household" means the registered owner or occupier of a lot and the people living there.
+- "Management" means the township management office and its authorised staff or guards.
+- "Approval" means written approval from Management before the activity begins.
+- Where these by-laws and a posted facility notice differ, the posted notice applies.
+- These by-laws apply to owners, occupiers, tenants, visitors, contractors and delivery staff.
+- Ignorance of a by-law is not a defence, but Management will normally issue a reminder first.
 
-2. Renovation & extensions
-- Submit plans before work. No structural, facade or boundary changes without consent.
-- Work hours: Mon–Sat 08:00–18:00. No work on Sundays or public holidays.
-- A contractor deposit and debris removal may apply.
+1. Property use & occupancy
+- Lots are residential unless gazetted or approved for commercial use.
+- Keep the lot's use consistent with its approved purpose; do not convert a home into
+  a shop, workshop, warehouse or place of public assembly without approval.
+- Home businesses need written Management approval and must not cause signage, parking,
+  noise, storage, waste or delivery nuisance.
+- Approved home businesses may operate only between 08:00 and 20:00, and must keep
+  customers and deliveries from blocking common property.
+- Short-term rentals (for example Airbnb or homestays) need approval and neighbour
+  notice; maximum 6 guests per lot at any time.
+- Short-term guests must be given the house rules, including quiet hours, parking,
+  waste and pool rules. The host remains responsible for their conduct.
+- Do not sublet a lot or a room in a way that creates a second household without approval.
+- Report a change of owner, tenant or main contact to Management within 14 days.
+- Vacant lots must be kept safe, clean and free of overgrowth and standing water.
 
-3. Parking
-- Park only in allotted bays. No parking on grass, roads or common areas.
-- Commercial vehicles over 3 tonnes and trailers may not park overnight.
-- Obstructive or repeat offences may be clamped or fined.
+2. Renovation, extensions & contractor works
+- Submit plans and obtain approval before any renovation, extension, demolition or
+  structural work starts.
+- No structural, facade, roof, boundary, plumbing or electrical changes without consent.
+- Approved work must follow the stamped plans; changes need fresh approval.
+- Work hours: Monday to Saturday 08:00–18:00. No work on Sundays or public holidays.
+- Noise-heavy work such as hacking, drilling and demolition is limited to 09:00–17:00.
+- A contractor deposit, debris removal fee and reinstatement bond may apply.
+- Contractors must register with security, carry identification and display a work permit.
+- Contractors must protect common property and clean up debris daily; damage is charged
+  to the household that engaged them.
+- Do not store building materials, skips or mixers on roads, grass or common property
+  beyond the approved period.
+- Renovation waste must be removed by the contractor; it must not go into household bins.
+- Wet work, painting and cement mixing must not discharge into drains or common areas.
+- Any work affecting a party wall, shared drain or shared service requires neighbour
+  notice and Management approval.
+- Management may stop unapproved or unsafe work immediately and require reinstatement.
 
-4. Pets
+3. Parking & vehicles
+- Park only in allotted bays. No parking on grass, roads, road reserves or common areas.
+- One allocated bay per lot unless extra bays are approved and paid for.
+- Visitors must use visitor bays and register at the guardhouse where required.
+- Do not park across two bays, block fire access, hydrants, ramps, walkways or bin areas.
+- Commercial vehicles over 3 tonnes and trailers may not park overnight without approval.
+- No overnight parking of caravans, boats, buses or mobile homes except in approved areas.
+- Vehicles must be roadworthy, taxed and not leaking oil; unroadworthy or abandoned
+  vehicles may be reported and removed after notice.
+- No vehicle repairs, engine washing, oil changes or spray painting in parking areas.
+- Electric vehicles may charge only at designated EV bays and must move once charging ends.
+- Obstructive or repeat offences may be clamped, towed or fined.
+- Report an accident, spill or damage to common property to Management immediately.
+
+4. Pets & animals
 - Dogs must be leashed and under control in common areas; clean up immediately.
-- No livestock or exotic animals. Maximum 2 dogs per household unless approved.
-- Persistent barking or noise is a nuisance offence.
+- No livestock, poultry or exotic animals. Maximum 2 dogs per household unless approved.
+- Keep pets inside the lot or securely enclosed; do not let them roam common property.
+- Pets are not allowed in pools, playgrounds, gyms, food areas or community halls.
+- Persistent barking, smell or mess is a nuisance offence and may lead to conditions or fines.
+- Feed or shelter stray animals only with Management approval; do not create feeding colonies.
+- Pet owners are responsible for injuries, damage and cleaning costs caused by their animals.
+- Management may require an animal to be removed if it repeatedly endangers or disturbs others.
 
-5. Waste & noise
+5. Waste, recycling & cleanliness
 - Bag refuse and place it in bins on collection day; no dumping in common areas.
-- Quiet hours: 22:00–07:00. Avoid loud music, machinery or renovation then.
+- Use the correct bin or recycling stream for general waste, recyclables and garden waste.
+- Put bins out no earlier than 20:00 the day before collection and bring them in by 20:00
+  on collection day.
+- Do not leave bins, bulk items or renovation debris in corridors, car parks or bin areas.
+- Bulky items and e-waste need a booked collection or delivery to the designated point.
+- Do not burn waste, including garden waste, anywhere on the lot or common property.
+- Do not pour oil, paint, chemicals or cooking waste into drains, grass or common areas.
+- Food premises and home businesses must manage their own commercial waste.
+- Keep drains, grease traps and rain gutters clear; repair leaks that affect neighbours.
+- Littering, spitting and dumping are nuisance offences and may be fined.
 
-6. Common areas & facilities
-- Do not obstruct walkways, corridors, drains or fire access.
-- Use facilities per posted rules; bookings are first-come, first-served.
+6. Noise & quiet hours
+- Quiet hours: 22:00–07:00. Avoid loud music, machinery, renovation or gatherings then.
+- Keep sound from TVs, speakers, instruments and karaoke at a level that cannot be heard
+  clearly from inside a neighbouring lot.
+- No outdoor speakers, live bands or amplified sound in common areas without approval.
+- Party and event areas must comply with their booking conditions and end times.
+- Vehicle engines, alarms and radios must not be left running or sounding unnecessarily.
+- Dogs and other pets must be managed so they do not cause persistent noise.
+- Repeated noise after a reminder may lead to fines, facility restrictions or further action.
+
+7. Common areas & facilities
+- Do not obstruct walkways, corridors, lifts, drains, fire access or emergency exits.
+- Use facilities per posted rules; bookings are first-come, first-served unless stated.
 - Damage to common property is charged to the responsible household.
+- Personal items, plants, shoe racks, cages and furniture must not encroach on common property.
+- Children must be supervised in playgrounds, pools and courts by a responsible adult.
+- Glass containers are not allowed in pool and playground areas.
+- Smoking and vaping are prohibited in enclosed common areas and within posted smoke-free zones.
+- Barbecues are allowed only at designated pits, must be fully extinguished and cleaned after use.
+- Do not reserve facilities with personal items; unused bookings may be released after 15 minutes.
+- Management may close a facility for maintenance, safety or weather without prior notice.
+- Facility fees, deposits and cancellation terms are shown at the management office or booking page.
 
-7. Signage & advertising
+8. Swimming pool, gym & sports courts
+- Shower before entering the pool; swimwear is required and street clothes are not allowed.
+- Children under 12 must be accompanied by an adult; non-swimmers should stay in shallow areas.
+- No diving, running, rough play, glass, food or pets in the pool area.
+- Pool hours are 07:00–22:00 unless posted otherwise; the pool may close for cleaning or safety.
+- Gym users must wipe down equipment, return weights and wear proper footwear and attire.
+- Children under 16 may use the gym only with adult supervision and not on cardio or weight
+  machines unless the posted notice allows it.
+- Sports courts are for their marked sport only; bookings are limited to 2 hours per household
+  per day where demand is high.
+- Report accidents, damage or faulty equipment to Management and do not use a closed facility.
+
+9. Security, access & visitors
+- Carry or display an access card where one is issued; do not lend it to outsiders.
+- Register visitors and contractors at the guardhouse where required.
+- Hosts are responsible for their visitors' conduct and must ensure they leave by a reasonable hour.
+- Do not prop open gates, hold lift doors or disable access control.
+- Do not give delivery drivers access beyond the lobby unless the household accompanies them.
+- Delivery vehicles may stop only at designated loading points and must not block fire access.
+- Report lost access cards, suspicious activity, leaks, fires or injuries to Management promptly.
+- CCTV may be used for security and enforcement, subject to applicable law and posted notices.
+- Management may refuse entry to anyone who breaches these by-laws or poses a safety risk.
+
+10. Move-in, move-out & deliveries
+- Book move-in and move-out slots with Management; moves are normally allowed 08:00–18:00.
+- Protect lifts, lobbies and corridors and remove all packaging and debris afterwards.
+- Large deliveries must use designated loading areas and must not block roads or fire access.
+- Do not move bulky items during quiet hours without approval.
+- A lift padding or protection deposit may apply for moves and large deliveries.
+- The household must settle outstanding fees and return access cards before move-out.
+
+11. Signage & advertising
 - No banners, posters or for-sale signs beyond the approved size and placement.
 - Do not nail signs to trees, walls or common property.
+- One approved for-sale or for-rent sign per lot, placed only at the approved point.
+- Home-business signage needs approval and must not be illuminated beyond the approved hours.
+- No flashing lights, loudspeakers, flyers on vehicles or signage in common areas without approval.
+- Political, religious or offensive material must not be displayed in common areas.
+- Management may remove unauthorised signage and charge the removal cost.
 
-8. Trees & landscaping
+12. Trees, landscaping & external appearance
 - Do not cut or remove trees or alter landscaping without approval.
 - Maintain your lot's grass, drains and boundary hedges.
+- Keep hedges and plants trimmed so they do not block walkways, drains, sightlines or neighbours' light.
+- Do not plant trees that may damage drains, walls, roofs or underground services.
+- Do not use common-area taps, power points or garden areas for private use.
+- Laundry, cages, storage and equipment must not be visible from common areas beyond approved rules.
+- Keep external paint, roofs and gutters in reasonable condition; faded or damaged exteriors may be
+  subject to a repair notice.
+- Do not feed or attract pests; standing water and overgrowth must be cleared.
+- Pesticides and herbicides must be used safely and must not drift into neighbouring lots.
 
-9. Fees & enforcement
+13. Utilities, drains & fire safety
+- Do not alter, tap or obstruct water, electricity, gas, sewer, drainage or fire systems.
+- Do not overload power points or run cables across walkways or common property.
+- Keep fire extinguishers, hydrants, hose reels, exits and access lanes clear at all times.
+- Do not store flammable liquids, gas cylinders or hazardous materials in common areas.
+- Report gas smells, exposed wiring, leaks, sinkholes or structural cracks immediately.
+- Do not discharge sump pumps, air-conditioner condensate or pool water onto neighbouring
+  lots or walkways without proper drainage.
+- Fireworks, open burning and drones require approval and must comply with applicable law.
+
+14. Fees, fines & enforcement
 - Management may issue reminders, fines or restrict facility access for breaches.
-- Mock fines: RM100 parking/waste, RM250 unapproved renovation work, RM500
-  repeat or nuisance offences. Appeals within 14 days.
+- Mock fines: RM100 parking or waste, RM250 unapproved renovation work, RM500 repeat or
+  nuisance offences.
+- Additional mock charges may apply for unapproved signage, pet offences, pool or gym
+  breaches, and damage to common property.
+- Fines do not replace the cost of repair, cleaning, towing or reinstatement.
+- Management may suspend facility booking rights until outstanding fines are paid.
+- A fine may be withdrawn if the breach is corrected promptly and no damage was caused.
+- The household is responsible for breaches by its tenants, visitors, pets and contractors.
 - By-laws may change; the latest notice on the community board applies.
 
-Contact your township management office for formal advice.
+15. Complaints, disputes & appeals
+- Raise concerns with the neighbour first where it is safe and reasonable to do so.
+- Report persistent or urgent issues to Management with the lot number, time and details.
+- Do not confront, threaten or harass another resident, guard or staff member.
+- Management will normally issue a reminder and allow a reasonable time to comply.
+- Appeals against a fine must be made in writing within 14 days of the notice.
+- Appeals should state the by-law, the facts and any supporting evidence.
+- The appeal decision will be given in writing and is final for the purposes of this mock set.
+- Urgent safety matters may be acted on immediately without a reminder.
+
+16. Amendments & contact
+- Management may amend, add or withdraw these mock by-laws by notice.
+- The latest notice on the community board or official channel prevails over older copies.
+- Contact your township management office for formal advice, approvals, bookings and appeals.
+- In an emergency, contact the relevant emergency service first, then notify Management.
